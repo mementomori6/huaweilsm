@@ -315,8 +315,46 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 	}
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
+	readProcess = 0;
 	//write rules
-	for(int i = 0;i<len;++i){}
+		while(readProcess < len){
+		//读每行数据（即一个完整数据）
+		while(controlledmessage[readProcess]!='\n'){
+			//读数据开头
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读obj_name
+			char obj_name[MAX_LENGTH];
+			memset(obj_name,0,MAX_LENGTH);
+			int source_count = 0;
+			while(controlledmessage[readProcess]!='#'){
+				obj_name[source_count++] = controlledmessage[readProcess];
+				++readProcess;
+			}
+			obj_name[source_count]='\0';
+			++readProcess;
+			//读obj_domain_name(不读取)
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读obj_type
+			uint_32 obj_type = 0;
+			while(controlledmessage[readProcess]!='#'){
+				obj_type = obj_type*10;
+				obj_type = obj_type + controlledmessage[readProcess] - '0';
+				readProcess++;
+			}
+			readProcess++;
+			addNewObjtype_node(
+				insert_objtype_node(obj_name,obj_type)
+				&policydb
+			);
+		}
+		readProcess++;
+	}
 	
 }
 static int write_object_typeMapping(int fd, char *buf, ssize_t len)
@@ -332,7 +370,45 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
 	//write rules
-	for(int i = 0;i<len;++i){}
+	int readProcess = 0;
+	while(readProcess < len){
+		//读每行数据（即一个完整数据）
+		while(controlledmessage[readProcess]!='\n'){
+			//读数据开头
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读sub_name
+			char sub_name[MAX_LENGTH];
+			memset(sub_name,0,MAX_LENGTH);
+			int source_count = 0;
+			while(controlledmessage[readProcess]!='#'){
+				sub_name[source_count++] = controlledmessage[readProcess];
+				++readProcess;
+			}
+			sub_name[source_count]='\0';
+			++readProcess;
+			//读domain_name(不读取)
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读sub_domain
+			uint_32 sub_domain = 0;
+			while(controlledmessage[readProcess]!='#'){
+				sub_domain = sub_domain*10;
+				sub_domain = sub_domain + controlledmessage[readProcess] - '0';
+				readProcess++;
+			}
+			readProcess++;
+			addNewSdmap_node(
+				insert_sdmap_node(sub_name,sub_domain)
+				&policydb
+			);
+		}
+		readProcess++;
+	}
 }
 static int write_whiteList(int fd, char *buf, ssize_t len)
 {
@@ -392,8 +468,6 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 				insert_wl_avtab_node(source_name,target_name,target_type,permission),
 				&policydb
 			);
-			readProcess++;
-			break;
 		}
 		readProcess++;
 	}
@@ -462,8 +536,6 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 				insert_te_node(source_type,target_type,target_class,permission),
 				&policydb
 			);
-			readProcess++;
-			break;
 		}
 		readProcess++;
 	}
