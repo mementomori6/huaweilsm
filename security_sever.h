@@ -186,10 +186,12 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 	void addNewTe_node(struct te_node *te_node,struct policydb *policydb){
 		//calculate hash
 		int origin = te_node->key->source_type + te_node->key->target_type + te_node->key->target_class ;
-		int answer = origin%te_avtab_size;
+		int answer = origin%policydb->te_avtab_size;
 		//insert
 		if(policydb->te_avtab->te_node[answer] == NULL){
 			policydb->te_avtab->te_node[answer] = te_node;
+			te_avtab_use++; 
+			policydb->te_policy_num++;
 		}
 		else{
 			struct te_node * find = policydb->te_avtab->te_node[answer];
@@ -197,6 +199,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 				find = find->next;
 			}
 			find->next = te_node;
+			policydb->te_policy_num++;
 		}
 	}
 	void addNewWl_avtb_node(struct wl_avtab_node* wl_avtab_node,struct policydb *policydb){
@@ -205,10 +208,12 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		for(int i =0;wl_avtab_node->source_name[i]!='\0';++i){
 			origin += wl_avtab_node->source_name[i];
 		}
-		int answer = origin%wl_avtab_size;
+		int answer = origin%policydb->wl_avtab_size;
 		//insert
 		if(policydb->wl_avtab->wl_avtab_node[answer] == NULL){
 			policydb->wl_avtab->wl_avtab_node[answer] = wl_avtab_node;
+			policydb->wl_avtab_use++;
+			policydb->wl_policy_num++;
 		}
 		else{
 			struct wl_avtab_node * find = policydb->wl_avtab->wl_avtab_node[answer];
@@ -216,6 +221,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 				find = find->next;
 			}
 			find->next = wl_avtab_node;
+			policydb->wl_policy_num++;
 		}
 	}
 	void addNewSdmap_node(struct sdmap_node* sdmap_node,struct policydb *policydb){
@@ -224,10 +230,12 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		for(int i =0;sdmap_node->key->sub_name[i]!='\0';++i){
 			origin += sdmap_node->key->sub_name[i];
 		}
-		int answer = origin%sub_dom_map_size;
+		int answer = origin%policydb->sub_dom_map_size;
 		//insert
 		if(policydb->sub_dom_map->sdmap_node[answer] == NULL){
 			policydb->sub_dom_map->sdmap_node[answer] = sdmap_node;
+			policydb->sub_dom_map_use++;
+			policydb->sdmap_policy_num++;
 		}
 		else{
 			struct sdmap_node *find = policydb->sub_dom_map->sdmap_node[answer];
@@ -235,6 +243,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 				find = find->next;
 			}
 			find->next = sdmap_node;
+			policydb->sdmap_policy_num++;
 		}
 	}
 	void addNewObjtype_node(struct objtype_node* objtype_node,struct policydb *policydb){
@@ -243,10 +252,12 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		for(int i =0;objtype_node.key->obj_name[i]!='\0';++i){
 			origin += objtype_node.key->obj_name[i];
 		}
-		int answer = origin%obj_type_map_size;
+		int answer = origin%policydb->obj_type_map_size;
 		//insert
 		if(policydb->obj_type_map->objtype_node[answer] == NULL){
 			policydb->obj_type_map->objtype_node[answer] = objtype_node;
+			policydb->obj_type_map_use++;
+			policydb->otmap_policy_num++;
 		}
 		else{
 			struct objtype_node * find = policydb->obj_type_map->objtype_node[answer];
@@ -254,14 +265,65 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 				find = find->next;
 			}
 			find->next = objtype_node;
+			policydb->otmap_policy_num++;
 		}
 	}
 //安全服务器向对象管理器提供的策略查询接口
 //主体-域映射表
-uint_32 sub_dom_map_check(char *sub_name);
+uint_32 sub_dom_map_check(char *sub_name,struct policydb *policydb){
+	uint_32 ret = 0;
+	for(int i = 0;sub_name[i] != '\0';++i){
+		ret += sub_name[i];
+	}
+	ret = ret%policydb->sub_dom_map_size;
+	return ret;
+}
 //客体-类型映射表
-uint_32 obj_type_map_check(char *obj_name);
-//白名单查询
-int wl_avtab_check(char* source_name, char* target_name, uint_32 target_class, uint_32 request);
-//通用访问控制查询
-int te_avtab_check (int source_type, int target_type, uint_32 target_class, uint_32 request);
+uint_32 obj_type_map_check(char *obj_name,struct policydb *policydb){
+	uint_32 ret = 0;
+	for(int i = 0;obj_name[i] != '\0';++i){
+		ret += obj_name[i];
+	}
+	ret = ret%policydb->otmap_policy_num;
+	return ret;
+}
+//白名单查询(0允许，1禁止，-1未定义)
+int wl_avtab_check(char* source_name, char* target_name, uint_32 target_class, uint_32 request,struct policydb *policydb){
+	if(source_name == NULL || target_name == NULL)
+		return 0;
+	int origin = 0;
+		for(int i =0;source_name[i]!='\0';++i){
+			origin += source_name[i];
+		}
+	int answer = origin%wl_avtab_size;
+	return checkwl_note(answer,source_name,target_name,target_class,request,&policydb);
+}
+int checkwl_note(int answer,char* source_name, char* target_name, uint_32 target_class, uint_32 request,struct policydb *policydb){
+	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
+	while(find != NULL){
+		if(strcmp(source_name,find->key->source_name)==0 && strcmp(target_name,find->key->target_name)==0 && find->key->target_class == target_class){
+			int policy = find->datum & request;
+			if(policy == 0)
+				return 1;
+			return 0;
+		}
+		find = find->next;
+	}
+	return -1;
+}
+//通用访问控制查询(1禁止，0允许)
+int te_avtab_check (int source_type, int target_type, uint_32 target_class, uint_32 request,struct policydb *policydb){
+	int origin = source_type+target_type+target_class;
+	int answer = origin%policydb->te_policy_num;
+	struct te_node *find = policydb->te_avtab->te_node[answer];
+	while(find != NULL){
+		if(source_type == find->key->source_type && target_type == find->key->target_type && target_class == find->key->target_class){
+			int policy = find->datum & request;
+			if(policy == 0)
+				return 1;
+			return 0;
+		}
+		find = find->next;
+	}
+	return 0;
+}
