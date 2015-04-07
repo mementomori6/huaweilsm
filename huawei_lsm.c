@@ -433,39 +433,74 @@ struct file_operations fops3 = {
 //初始化模块
 static void initialize_subject_domainMapping()
 {
-	policydb.sub_dom_map_size = 499;
 	policydb.sub_dom_map_use = 0;
 	policydb.sdmap_policy_num = 0;
 	for(int i = 0;i<policydb.sub_dom_map_size;++i){
-		policydb.sub_dom_map->te_node[i] = NULL;
+		if(policydb.sub_dom_map->sdmap_node[i] != NULL){
+			free_admap_node_list(sdmap_node[i]);
+			sdmap_node[i] = NULL;
+		}
 	}
 }
-static void initialize_object_typeMapping()
+static void initialize_object_typeMapping(void)
 {
-	policydb.obj_type_map_size = 499;
+	policydb.obj_type_map_use = 0;
+	policydb.otmap_policy_num = 0;
+	for(int i = 0;i<policydb.obj_type_map_size;++i){
+		if(policydb.obj_type_map->objtype_node[i] != NULL){
+			free_objtype_node_list(objtype_node[i] );
+			objtype_node[i] = NULL;
+		}
+	}
+}
+static void initialize_whiteList(void)
+{
+	policydb.wl_avtab_use = 0;
+	policydb.wl_policy_num = 0;
+	for(int i = 0;i<policydb.wl_avtab_size;++i){
+		if(policydb.wl_avtab->wl_avtab_node[i] != NULL){
+			free_wl_avtab_node_list(wl_avtab_node[i]);
+			wl_avtab_node[i] = NULL;
+		}
+	}
+}
+static void initialize_accessControlMatrix(void)
+{
+	policydb.te_avtab_use = 0;
+	policydb.te_policy_num = 0;
+	for(int i = 0;i<policydb.te_avtab_size;++i){
+		if(policydb.te_avtab->te_node[i] != NULL){
+			free_te_node_list(te_node[i]);
+			te_node[i] = NULL;
+		}
+	}
+}
+void initialpolicydb(void){
+	policydb.obj_type_map_size = HASH_MAX_LENGTH;
 	policydb.obj_type_map_use = 0;
 	policydb.otmap_policy_num = 0;
 	for(int i = 0;i<policydb.obj_type_map_size;++i){
 		policydb.obj_type_map->obj_type_map[i] = NULL;
 	}
-}
-static void initialize_whiteList()
-{
-	policydb.wl_avtab_size = 499;
+	policydb.obj_type_map_size = HASH_MAX_LENGTH;
+	policydb.obj_type_map_use = 0;
+	policydb.otmap_policy_num = 0;
+	for(int i = 0;i<policydb.obj_type_map_size;++i){
+		policydb.obj_type_map->obj_type_map[i] = NULL;
+	}
+	policydb.wl_avtab_size = HASH_MAX_LENGTH;
 	policydb.wl_avtab_use = 0;
 	policydb.wl_policy_num = 0;
 	for(int i = 0;i<policydb.wl_avtab_size;++i){
 		policydb.wl_avtab->wl_avtab_node[i] = NULL;
 	}
-}
-static void initialize_accessControlMatrix()
-{
-	policydb.te_avtab_size = 499;
+	policydb.te_avtab_size = HASH_MAX_LENGTH;
 	policydb.te_avtab_use = 0;
 	policydb.te_policy_num = 0;
 	for(int i = 0;i<policydb.te_avtab_size;++i){
 		policydb.te_avtab->te_node[i] = NULL;
 	}
+	
 }
 //挂载钩子点函数
 static struct security_operations lsm_ops=
@@ -514,11 +549,11 @@ static int __init lsm_init(void)
            }
 	
     printk(KERN_INFO"LSM Module Init Success! \n");
-	
-	 ret_subjectDomainMapping = register_chrdev(123, "/dev/domainDefinition.cfg", &fops0); 	// 向系统注册设备结点文件
-	 ret_objectTypeMapping = register_chrdev(123, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
-	 ret_whiteList = register_chrdev(123, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
-	 ret_accessControlMatrix = register_chrdev(123, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
+	initialpolicydb();
+	ret_subjectDomainMapping = register_chrdev(123, "/dev/domainDefinition.cfg", &fops0); 	// 向系统注册设备结点文件
+	ret_objectTypeMapping = register_chrdev(123, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
+	ret_whiteList = register_chrdev(123, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
+	ret_accessControlMatrix = register_chrdev(123, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
 	//if (ret != 0) printk("Can't register device file! \n"); 
 	
 

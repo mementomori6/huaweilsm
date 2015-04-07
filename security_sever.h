@@ -6,7 +6,8 @@
 
 
 #include <linux/kernel.h>
-#define  MAX_LENGTH  499 ;
+#include <linux/vmalloc.h>
+#define  HASH_MAX_LENGTH  499 ;
 
 //安全策略库数据结构设计
 struct policydb{
@@ -33,16 +34,15 @@ struct policydb{
 
 };
 
+
+
 struct te_avtab{
-	te_node *te_node[MAX_LENGTH];
+	te_node *te_node[HASH_MAX_LENGTH];
 };
 struct te_node{
 	struct te_avtab_key *key;
 	struct te_atab_datum *datum;
 	struct te_node *next;
-	struct te_node(void){
-		this.next = NULL;
-	}
 };
 struct te_avtab_key{
 	uint_32 source_type;
@@ -52,6 +52,89 @@ struct te_avtab_key{
 struct te_avtab_datum{
 	uint_32 permission;
 };
+struct te_node *insert_te_node(uint_32 source_type,uint_32 target_type,uint_32 target_class,uint_32 permission){
+	struct te_node *te_node = (struct te_node*)vmalloc(sizeof(struct te_node));
+	te_node->key->source_type = source_type;
+	te_node->key->target_type = target_type;
+	te_node->key->target_class = target_class;
+	te_node->datum = permission;
+	te_node->next = NULL;
+}
+void free_te_node_list(struct te_node *te_node){
+	if(te_node->next != NULL){
+		free_te_node_list(te_node->next);
+	}
+	free(te_node);
+}
+
+
+
+struct sub_dom_map{
+	sdmap_node *sdmap_node[HASH_MAX_LENGTH];
+};
+struct sdmap_node {
+	struct sdmap_key *key;
+	struct sdmap_datum *datum;
+	struct sdmap_node *next;
+};
+struct sdmap_key{
+	char *sub_name;
+};
+struct sdmap_datum{
+	uint_32 sub_domain;
+};
+struct sdmap_node *insert_sdmap_node(char *sub_name,uint_32 sub_domain){
+	struct sdmap_node *sdmap_node = (struct sdmap_node*)vmalloc(sizeof(struct sdmap_node));
+	char* sub_name_use = (char *)vmalloc(strlen(sub_name)*sizeof(char));
+	strcpy(sub_name_use,sub_name);
+	sdmap_node->key->sub_name = sub_name_use;
+	sdmap_node->datum = sub_domain;
+	sdmap_node->next = NULL;
+}
+void free_sdmap_node_list(struct sdmap_node *sdmap_node){
+	if(sdmap_node->next != NULL){
+		free_sdmap_node_list(sdmap_node->next);
+	}
+	free(sdmap_node->key->sub_name);
+	free(sdmap_node);
+}
+
+
+
+struct obj_type_map{
+	struct objtype_node *objtype_node[MAX_LENGTH];
+};
+struct objtype_node{
+	struct objtype_key *key;
+	struct objtype_datum *datum;
+	struct objtype_node *next;
+};
+struct objtype_key{
+	char *obj_name;
+};
+struct objtype_datum{
+	uint_32 obj_type;
+};
+/* void initial_obj_type_map(struct obj_type_map *obj_type_map){
+	for(int i= 0;i<HASH_MAX_LENGTH;++i){
+		objtype_node[i] = NULL;
+	}
+} */
+struct objtype_node *insert_objtype_node(char *obj_name,uint_32 obj_type){
+	struct objtype_node *objtype_node = (struct objtype_node*)vmalloc(sizeof(struct objtype_node));
+	char* obj_name_use = (char *)vmalloc(strlen(obj_name)*sizeof(char));
+	strcpy(obj_name_use,obj_name);
+	objtype_node->key->obj_name = obj_name_use;
+	objtype_node->datum = obj_type;
+	objtype_node->next = NULL;
+}
+void free_objtype_node_list(struct objtype_node *objtype_node){
+	if(objtype_node->next != NULL){
+		free_objtype_node_list(objtype_node->next);
+	}
+	free(objtype_node->key->obj_name);
+	free(objtype_node);
+}
 
 
 
@@ -59,16 +142,6 @@ struct wl_avtab_node {		/*白名单策略结点以及以下的两种映射结点
 	struct wl_avtab_key *key;
 	struct wl_avtab_datum *datum;
 	struct wl_avtab_node *next;
-	struct wl_avtab_node(void){
-		this.next = NULL;
-	}
-	struct wl_avtab_node(char*source_name,char*target_name,int target_type,int permission){
-		this.key->source_name = source_name;
-		this.key->target_name = target_name;
-		this.key->target_class = target_type;
-		this.datum->permission = permission;
-		this.next = NULL;
-	}
 }
 struct wl_avtab_key {
 	char *source_name;
@@ -79,8 +152,36 @@ struct wl_avtab_datum {
 	uint_32 permission;
 };
 struct wl_avtab{
-	struct wl_avtab_node *wl_avtab_node[MAX_LENGTH];
+	struct wl_avtab_node *wl_avtab_node[HASH_MAX_LENGTH];
 };
+/* void initial_wl_avtab(struct *wl_avtab){
+	for(int i= 0;i<HASH_MAX_LENGTH;++i){
+		wl_avtab_node[i] = NULL;
+	}
+} */
+struct wl_avtab_node* insert_wl_avtab_node(char *source_name,char *target_name,uint_32 target_class,uint_32 permission){
+	struct wl_avtab_node *wl_avtab_node = (struct wl_avtab_node*)vmalloc(sizeof(struct wl_avtab_node));
+	char *source_name_used = (char *)vmalloc(strlen(source_name)*sizeof(char));
+	strcpy(source_name_used,source_name);
+	wl_avtab_node->key->source_name = source_name_used;
+	char *target_name_used = (char *)vmalloc(strlen(target_name)*sizeof(char));
+	strcpy(target_name_used,target_name);
+	wl_avtab_node->key->target_name = target_name_used;
+	wl_avtab_node->key->target_class = target_class;
+	wl_avtab_node->datum->permission = permission;
+	wl_avtab_node->next = NULL;
+	return wl_avtab_node;
+}
+void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
+	if(wl_avtab_node->next != NULL){
+		free_wl_avtab_node_list(wl_avtab_node->next);
+	}
+	free(wl_avtab_node->source_name);
+	free(wl_avtab_node->target_name);
+	free(wl_avtab_node);
+}
+
+
 
 	void addNewTe_node(struct te_node *te_node,struct policydb *policydb){
 		//calculate hash
@@ -155,46 +256,6 @@ struct wl_avtab{
 			find->next = objtype_node;
 		}
 	}
-
-
-struct sub_dom_map{
-	sdmap_node *sdmap_node[MAX_LENGTH];
-};
-struct sdmap_node {
-	struct sdmap_key *key;
-	struct sdmap_datum *datum;
-	struct sdmap_node *next;
-	struct sdmap_node(void){
-		this.next = NULL;
-	}
-};
-struct sdmap_key{
-	char *sub_name;
-};
-struct sdmap_datum{
-	uint_32 sub_domain;
-};
-
-
-
-struct obj_type_map{
-	struct objtype_node *objtype_node[MAX_LENGTH];
-};
-struct objtype_node{
-	struct objtype_key *key;
-	struct objtype_datum *datum;
-	struct objtype_node *next;
-	struct objtype_node(void){
-		this.next = NULL;
-	}
-};
-struct objtype_key{
-	char *obj_name;
-};
-struct objtype_datum{
-	uint_32 obj_type;
-};
-
 //安全服务器向对象管理器提供的策略查询接口
 //主体-域映射表
 uint_32 sub_dom_map_check(char *sub_name);
