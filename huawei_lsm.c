@@ -200,12 +200,18 @@ static int huawei_lsm_file_permission(struct file *file, int mask) {
 		}
 	}
 	int result = wl_avtab_check(currentProcessFullPath,full_path,FILE_CONTROL,operation,&policydb);
+	int resultddl = wl_avtab_check(currentProcessFullPath,full_path,DDL_CONTROL,operation,&policydb);
 	if(result != -1)
 		return result;
+	if(resultddl != -1)
+		return resultddl;
 	int target_type = obj_type_map_check(full_path);
 	int source_type = sub_dom_map_check(currentProcessFullPath);
-	result = te_avtab_check(source_type,target_type,FILE_CONTROL,LINK_AUTHORITY,&policydb);
-	return result;
+	result = te_avtab_check(source_type,target_type,FILE_CONTROL,operation,&policydb);
+	resultddl = te_avtab_check(source_type,target_type,DDL_CONTROL,operation,&policydb);
+	if(result ==1 || resultddl == 1)
+		return 1;
+	return 0;
 }
 
 static int huawei_lsm_inode_link (struct dentry *old_dentry,struct inode *dir, struct dentry *new_dentry){
@@ -214,12 +220,18 @@ static int huawei_lsm_inode_link (struct dentry *old_dentry,struct inode *dir, s
 	get_fullpath(new_dentry,full_path);
 	char *currentProcess = get_current_process_full_path();
 	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	int resultddl = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_LINK_AUTHORITY,&policydb);
 	if(result != -1)
 		return result;
+	if(resultddl != -1)
+		return resultddl;
 	int target_type = obj_type_map_check(full_path);
 	int source_type = sub_dom_map_check(currentProcess);
 	result = te_avtab_check (source_type,target_type,FILE_CONTROL,LINK_AUTHORITY,&policydb);
-	return result;
+	resultddl = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_LINK_AUTHORITY,&policydb);
+	if(result == 1 || resultddl == 1)
+		return 1;
+	return 0;
 }
 static int huawei_lsm_inode_symlink (struct inode *dir,struct dentry *dentry, const char *old_name){
 	char full_path[MAX_LENGTH];
@@ -227,25 +239,58 @@ static int huawei_lsm_inode_symlink (struct inode *dir,struct dentry *dentry, co
 	get_fullpath(dentry,full_path);
 	char *currentProcess = get_current_process_full_path();
 	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	int resultddl = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_LINK_AUTHORITY,&policydb);
 	if(result != -1)
 		return result;
+	if(resultddl != -1)
+		return resultddl;
 	int target_type = obj_type_map_check(full_path);
 	int source_type = sub_dom_map_check(currentProcess);
 	result = te_avtab_check (source_type,target_type,FILE_CONTROL,LINK_AUTHORITY,&policydb);
-	return result;
+	resultddl = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_LINK_AUTHORITY,&policydb);
+	if(result == 1 || resultddl == 1)
+		return 1;
+	return 0;
 }
 static int huawei_inode_rename (struct inode *old_dir, struct dentry *old_dentry,struct inode *new_dir, struct dentry *new_dentry){
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(old_dentry,full_path);
+	char old_parent_full_path[MAX_LENGTH];
+	struct dentry *useDentry = d_find_alias(old_dir);
+	memset(old_parent_full_path,0,MAX_LENGTH);
+	get_fullpath(useDentry,old_parent_full_path);
+	
+	char new_parent_full_path[MAX_LENGTH];
+	struct dentry *useDentry_new = d_find_alias(new_dir);
+	memset(new_parent_full_path,0,MAX_LENGTH);
+	get_fullpath(useDentry_new,new_parent_full_path);
+	
 	char *currentProcess = get_current_process_full_path();
 	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,RENAME_AUTHORITY,&policydb);
+	int resultddl = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_RENAME_AUTHORITY,&policydb);
+	int resultRE = 0;
+	if(strcmp(old_parent_full_path,new_parent_full_path)!=0){
+		resultRE = wl_avtab_check(currentProcess,full_path,DIR_CONTROL,REPARENT_AUTHORITY,&policydb);
+		if(resultRE == 1)
+			return resultRE;
+	}
 	if(result != -1)
 		return result;
+	if(resultddl != -1)
+		return resultddl;
 	int target_type = obj_type_map_check(full_path);
 	int source_type = sub_dom_map_check(currentProcess);
 	result = te_avtab_check (source_type,target_type,FILE_CONTROL,RENAME_AUTHORITY,&policydb);
-	return result;
+	resultddl = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_RENAME_AUTHORITY,&policydb);
+	if(strcmp(old_parent_full_path,new_parent_full_path)!=0){
+		resultRE = te_avtab_check (source_type,target_type,DIR_CONTROL,REPARENT_AUTHORITY,&policydb);
+		if(resultRE == 1)
+			return resultRE;
+	}
+	if(result == 1 || resultddl == 1)
+		return 1;
+	return 0;
 }
 static int huawei_lsm_inode_unlink(struct inode *dir, struct dentry *dentry) {
     char full_path[MAX_LENGTH];
@@ -253,12 +298,18 @@ static int huawei_lsm_inode_unlink(struct inode *dir, struct dentry *dentry) {
 	get_fullpath(dentry,full_path);
 	char *currentProcess = get_current_process_full_path();
 	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,UNLINK_AUTHORITY,&policydb);
+	int resultddl = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_UNLINK_AUTHORITY,&policydb);
 	if(result != -1)
 		return result;
+	if(resultddl != -1)
+		return resultddl;
 	int target_type = obj_type_map_check(full_path);
 	int source_type = sub_dom_map_check(currentProcess);
 	result = te_avtab_check (source_type,target_type,FILE_CONTROL,UNLINK_AUTHORITY,&policydb);
-	return result;
+	resultddl = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_UNLINK_AUTHORITY,&policydb);
+	if(result == 1 || resultddl == 1)
+		return 1;
+	return 0;
 }
 
 static int huawei_lsm_inode_rmdir(struct inode *dir, struct dentry *dentry) {
