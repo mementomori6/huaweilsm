@@ -519,7 +519,7 @@ static int __init lsm_init(void)
 	 ret_objectTypeMapping = register_chrdev(123, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
 	 ret_whiteList = register_chrdev(123, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
 	 ret_accessControlMatrix = register_chrdev(123, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
-	if (ret != 0) printk("Can't register device file! \n"); 
+	//if (ret != 0) printk("Can't register device file! \n"); 
 	
 
    return 0;

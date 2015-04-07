@@ -6,103 +6,31 @@
 
 
 #include <linux/kernel.h>
-const int MAX_LENGTH = 512 ;
+#define  MAX_LENGTH  499 ;
 
 //安全策略库数据结构设计
 struct policydb{
-	struct te_avtab **te_avtab;
+	struct te_avtab *te_avtab;
 	int te_avtab_size;	  /*哈希表的大小，通常为素数*/
 	int te_avtab_use;     /*已使用的哈希表项的数目*/
 	int te_policy_num;	  /*已加载TE策略条数*/
 
-	struct wl_avtab **wl_avtab;
+	struct wl_avtab *wl_avtab;
 	int wl_avtab_size;
 	int wl_avtab_use;
 	int wl_policy_num;
 
-	struct sub_dom_map **sub_dom_map;
+	struct sub_dom_map *sub_dom_map;
 	int sub_dom_map_size;
 	int sub_dom_map_use;
 	int sdmap_policy_num;
 
-	struct obj_type_map **obj_type_map;
+	struct obj_type_map *obj_type_map;
 	int obj_type_map_size;
 	int obj_type_map_use;
 	int otmap_policy_num;
 	
-	void addNewTe_node(struct te_node *te_node){
-		//calculate hash
-		int origin = te_node->key->source_type + te_node->key->target_type + te_node.key->target_class ;
-		int answer = origin%te_avtab_size;
-		//insert
-		if(te_avtab->te_node[answer] == NULL){
-			te_avtab->te_node[answer] = te_node;
-		}
-		else{
-			struct te_node * find = te_avtab->te_node[answer];
-			while(find->next == NULL){
-				find = find->next;
-			}
-			find->next = te_node;
-		}
-	}
-	void addNewWl_avtb_node(struct wl_avtab_node* wl_avtab_node){
-		//calculate hash
-		int origin = 0;
-		for(int i =0;wl_avtab_node->source_name[i]!='\0';++i){
-			origin += wl_avtab_node->source_name[i];
-		}
-		int answer = origin%wl_avtab_size;
-		//insert
-		if(wl_avtab->wl_avtab_node[answer] == NULL){
-			wl_avtab->wl_avtab_node[answer] = wl_avtab_node;
-		}
-		else{
-			struct wl_avtab_node * find = wl_avtab->wl_avtab_node[answer];
-			while(find->next == NULL){
-				find = find->next;
-			}
-			find->next = wl_avtab_node;
-		}
-	}
-	void addNewSdmap_node(struct sdmap_node* sdmap_node){
-		//calculate hash
-		int origin = 0;
-		for(int i =0;sdmap_node->key->sub_name[i]!='\0';++i){
-			origin += sdmap_node->key->sub_name[i];
-		}
-		int answer = origin%sub_dom_map_size;
-		//insert
-		if(sub_dom_map->sdmap_node[answer] == NULL){
-			sub_dom_map->sdmap_node[answer] = sdmap_node;
-		}
-		else{
-			struct sdmap_node * find = sub_dom_map->sdmap_node[answer];
-			while(find->next == NULL){
-				find = find->next;
-			}
-			find->next = sdmap_node;
-		}
-	}
-	void addNewObjtype_node(struct objtype_node* objtype_node){
-		//calculate hash
-		int origin = 0;
-		for(int i =0;objtype_node.key->obj_name[i]!='\0';++i){
-			origin += objtype_node.key->obj_name[i];
-		}
-		int answer = origin%obj_type_map_size;
-		//insert
-		if(obj_type_map->objtype_node[answer] == NULL){
-			obj_type_map->objtype_node[answer] = &objtype_node;
-		}
-		else{
-			struct objtype_node * find = &obj_type_map->objtype_node[answer];
-			while(find->next == NULL){
-				find = &find->next;
-			}
-			find->next = &objtype_node;
-		}
-	}
+
 };
 
 struct te_avtab{
@@ -154,6 +82,79 @@ struct wl_avtab{
 	struct wl_avtab_node *wl_avtab_node[MAX_LENGTH];
 };
 
+	void addNewTe_node(struct te_node *te_node,struct policydb *policydb){
+		//calculate hash
+		int origin = te_node->key->source_type + te_node->key->target_type + te_node->key->target_class ;
+		int answer = origin%te_avtab_size;
+		//insert
+		if(policydb->te_avtab->te_node[answer] == NULL){
+			policydb->te_avtab->te_node[answer] = te_node;
+		}
+		else{
+			struct te_node * find = policydb->te_avtab->te_node[answer];
+			while(find->next == NULL){
+				find = find->next;
+			}
+			find->next = te_node;
+		}
+	}
+	void addNewWl_avtb_node(struct wl_avtab_node* wl_avtab_node,struct policydb *policydb){
+		//calculate hash
+		int origin = 0;
+		for(int i =0;wl_avtab_node->source_name[i]!='\0';++i){
+			origin += wl_avtab_node->source_name[i];
+		}
+		int answer = origin%wl_avtab_size;
+		//insert
+		if(policydb->wl_avtab->wl_avtab_node[answer] == NULL){
+			policydb->wl_avtab->wl_avtab_node[answer] = wl_avtab_node;
+		}
+		else{
+			struct wl_avtab_node * find = policydb->wl_avtab->wl_avtab_node[answer];
+			while(find->next == NULL){
+				find = find->next;
+			}
+			find->next = wl_avtab_node;
+		}
+	}
+	void addNewSdmap_node(struct sdmap_node* sdmap_node,struct policydb *policydb){
+		//calculate hash
+		int origin = 0;
+		for(int i =0;sdmap_node->key->sub_name[i]!='\0';++i){
+			origin += sdmap_node->key->sub_name[i];
+		}
+		int answer = origin%sub_dom_map_size;
+		//insert
+		if(policydb->sub_dom_map->sdmap_node[answer] == NULL){
+			policydb->sub_dom_map->sdmap_node[answer] = sdmap_node;
+		}
+		else{
+			struct sdmap_node *find = policydb->sub_dom_map->sdmap_node[answer];
+			while(find->next == NULL){
+				find = find->next;
+			}
+			find->next = sdmap_node;
+		}
+	}
+	void addNewObjtype_node(struct objtype_node* objtype_node,struct policydb *policydb){
+		//calculate hash
+		int origin = 0;
+		for(int i =0;objtype_node.key->obj_name[i]!='\0';++i){
+			origin += objtype_node.key->obj_name[i];
+		}
+		int answer = origin%obj_type_map_size;
+		//insert
+		if(policydb->obj_type_map->objtype_node[answer] == NULL){
+			policydb->obj_type_map->objtype_node[answer] = objtype_node;
+		}
+		else{
+			struct objtype_node * find = policydb->obj_type_map->objtype_node[answer];
+			while(find->next == NULL){
+				find = find->next;
+			}
+			find->next = objtype_node;
+		}
+	}
 
 
 struct sub_dom_map{
