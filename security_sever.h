@@ -271,6 +271,8 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 //安全服务器向对象管理器提供的策略查询接口
 //主体-域映射表
 uint_32 sub_dom_map_check(char *sub_name,struct policydb *policydb){
+	if(sub_name == NULL)
+		return 0;
 	uint_32 ret = 0;
 	for(int i = 0;sub_name[i] != '\0';++i){
 		ret += sub_name[i];
@@ -280,6 +282,8 @@ uint_32 sub_dom_map_check(char *sub_name,struct policydb *policydb){
 }
 //客体-类型映射表
 uint_32 obj_type_map_check(char *obj_name,struct policydb *policydb){
+	if(obj_name == NULL)
+		return 0;
 	uint_32 ret = 0;
 	for(int i = 0;obj_name[i] != '\0';++i){
 		ret += obj_name[i];
@@ -325,5 +329,5 @@ int te_avtab_check (int source_type, int target_type, uint_32 target_class, uint
 		}
 		find = find->next;
 	}
-	return 0;
+	return -1;
 }

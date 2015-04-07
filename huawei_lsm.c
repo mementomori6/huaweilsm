@@ -186,44 +186,93 @@ int check(char* currentProcessFullPath, int authority) {
 //file control
 static int huawei_lsm_file_permission(struct file *file, int mask) {
     char* currentProcessFullPath = get_current_process_full_path();
-
-	if((mask == 2) && (check(currentProcessFullPath, WRITE_AUTHORITY) != 0)) {
-        printk("write denied\n");
-        return -1;
-    }
-    else {
-        return 0;
-    }
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(file->f_path.dentry,full_path);
+	int operation = 0;
+	if(mask == MAY_WRITE){
+		operation = WRITE_AUTHORITY;
+	}else{
+		if(mask == MAY_READ){
+		operation = READ_AUTHORITY;
+		}else{
+			return 0;
+		}
+	}
+	int result = wl_avtab_check(currentProcessFullPath,full_path,FILE_CONTROL,operation,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcessFullPath);
+	result = te_avtab_check(source_type,target_type,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	return result;
 }
 
-static int huawei_lsm_inode_link (struct dentry *old_dentry,
-	                   struct inode *dir, struct dentry *new_dentry){}
-static int huawei_lsm_inode_symlink (struct inode *dir,
-			      struct dentry *dentry, const char *old_name){}
-static int huawei_inode_rename (struct inode *old_dir, struct dentry *old_dentry,
-			     struct inode *new_dir, struct dentry *new_dentry){}
+static int huawei_lsm_inode_link (struct dentry *old_dentry,struct inode *dir, struct dentry *new_dentry){
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(new_dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	return result;
+}
+static int huawei_lsm_inode_symlink (struct inode *dir,struct dentry *dentry, const char *old_name){
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	return result;
+}
+static int huawei_inode_rename (struct inode *old_dir, struct dentry *old_dentry,struct inode *new_dir, struct dentry *new_dentry){
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(old_dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,RENAME_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,FILE_CONTROL,RENAME_AUTHORITY,&policydb);
+	return result;
+}
 static int huawei_lsm_inode_unlink(struct inode *dir, struct dentry *dentry) {
-    char* currentProcessFullPath = get_current_process_full_path();
-    
-    if(check(currentProcessFullPath, REMOVE_AUTHORITY) != 0) {
-        printk("remove denied\n");
-        return 1;
-    }
-    else {
-        return 0;
-    }
+    char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,UNLINK_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,FILE_CONTROL,UNLINK_AUTHORITY,&policydb);
+	return result;
 }
 
 static int huawei_lsm_inode_rmdir(struct inode *dir, struct dentry *dentry) {
-	char* currentProcessFullPath = get_current_process_full_path();
-    
-    if(check(currentProcessFullPath, REMOVE_AUTHORITY) != 0) {
-        printk("remove denied\n");
-        return 1;
-    }
-    else {
-        return 0;
-    }
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,DIR_CONTROL,RMDIR_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,DIR_CONTROL,RMDIR_AUTHORITY,&policydb);
+	return result;
 }
 
 //database
@@ -241,25 +290,36 @@ static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *addre
 
 //I/O device
 static int huawei_lsm_sb_mount(const char *dev_name, struct path *path, const char *type, unsigned long flags, void *data) {
-    char* currentProcessFullPath = get_current_process_full_path();
-
-    if(check(currentProcessFullPath, MOUNT_AUTHORITY) != 0) {
-        printk("mount denied\n");
-        return -1;
-    }
-    else {
-        return 0;
-    }
+    char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(path->dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,IO_CONTROL,MOUNT_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,IO_CONTROL,MOUNT_AUTHORITY,&policydb);
+	return result;
 }
 
-static int huawei_lsm_inode_mknod (struct inode *dir, struct dentry *dentry,
-			    int mode, dev_t dev){}
+static int huawei_lsm_inode_mknod (struct inode *dir, struct dentry *dentry,int mode, dev_t dev){
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,IO_CONTROL,MKNOD_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,IO_CONTROL,MKNOD_AUTHORITY,&policydb);
+	return result;
+}
 
 //network conmunication control				
-static int huawei_lsm_socket_sendmsg (struct socket *sock,
-			       struct msghdr *msg, int size){}
-static int huawei_lsm_socket_bind (struct socket *sock,
-			    struct sockaddr *address, int addrlen){}	
+static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, int size){}
+static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address, int addrlen){}	
 
 static int huawei_lsm_socket_create(int family, int type, int protocol, int kern) {
     char* currentProcessFullPath = get_current_process_full_path();
@@ -274,17 +334,59 @@ static int huawei_lsm_socket_create(int family, int type, int protocol, int kern
 }
 
 //ddl,exec				
-static int huawei_lsm_inode_setattr	(struct dentry *dentry, struct iattr *attr){}				
+static int huawei_lsm_inode_setattr	(struct dentry *dentry, struct iattr *attr){
+	char full_path[MAX_LENGTH];
+	memset(full_path,0,MAX_LENGTH);
+	get_fullpath(dentry,full_path);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_SETATTR_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(full_path);
+	int source_type = sub_dom_map_check(currentProcess);
+	result = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_SETATTR_AUTHORITY,&policydb);
+	return result;
+}				
 				
 static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
-    char* currentProcessFullPath = get_current_process_full_path();
-    if((mask == 4) && (check(currentProcessFullPath, OPEN_AUTHORITY) != 0)) {
-        printk("open denied\n");
-        return -1;
-    }
-    else {
-        return 0;
-    }
+    if(mask == MAY_READ || mask == MAY_WRITE || mask != MAY_EXEC && mask != MAY_APPEND)
+		return 0;
+	int inodeMode = inode->i_mode & 4095;
+	char full_name[MAX_LENGTH];
+	struct dentry *useDentry = d_find_alias(inode);
+	memset(full_name,0,MAX_LENGTH);
+	get_fullpath(useDentry,full_name);
+	char *currentProcess = get_current_process_full_path();
+	if(mask == MAY_EXEC){
+		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,EXEC_AUTHORITY,&policydb);
+		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
+		if(fileresult != -1)
+			return fileresult;
+		if(ddlresult != -1)
+			return ddlresult;
+		int target_type = obj_type_map_check(full_path);
+		int source_type = sub_dom_map_check(currentProcess);
+		ddlresult = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
+		fileresult = te_avtab_check (source_type,target_type,FILE_CONTROL,EXEC_AUTHORITY,&policydb);
+		if(fileresult == 1 || ddlresult == 1)
+			return 1;
+		return 0;
+	}
+	if(mask == MAY_APPEND){
+		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,APPEND_AUTHORITY,&policydb);
+		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_APPEND_AUTHORITY,&policydb);
+		if(fileresult != -1)
+			return fileresult;
+		if(ddlresult != -1)
+			return ddlresult;
+		int target_type = obj_type_map_check(full_path);
+		int source_type = sub_dom_map_check(currentProcess);
+		ddlresult = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
+		fileresult = te_avtab_check (source_type,target_type,FILE_CONTROL,DDL_APPEND_AUTHORITY,&policydb);
+		if(fileresult == 1 || ddlresult == 1)
+			return 1;
+		return 0;
+	}
 }
 
 /* static int huawei_lsm_task_create(unsigned long clone_flags) {
