@@ -376,26 +376,26 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 			}
 			target_name[target_count]='\0';
 			++readProcess;
-			//读target_type
-			int target_type = 0;
-			while(controlledmessage[readProcess]!='#'){
-				target_type = 10*target_type;
-				target_type = target_type + controlledmessage[readProcess] - '0';
-				readProcess++;
-			}
+			//读target_type（只有1位）
+			uint_32 target_type = 0;
+			target_type = controlledmessage[readProcess] - '0';
+			readProcess++;
 			readProcess++;
 			//读permission
-			int permission = 0;
+			uint_32 permission = 0;
 			while(controlledmessage[readProcess]!='\n'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
 				target_type = 2*target_type;
 				target_type = target_type + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
-			struct wl_avtab_node wl_avtab_node(source_name,target_name,target_type,permission);
-			addNewWl_avtb_node(&wl_avtab_node);
+			addNewWl_avtb_node(
+				insert_wl_avtab_node(source_name,target_name,target_type,permission),
+				&policydb
+			);
 			readProcess++;
 			break;
 		}
+		readProcess++;
 	}
 }
 static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
@@ -410,8 +410,63 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 	}
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
+	int readProcess = 0;
 	//write rules
-	for(int i = 0;i<len;++i){}
+	while(readProcess < len){
+		//读每行数据（即一个完整数据）
+		while(controlledmessage[readProcess]!='\n'){
+			//读数据开头
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读domain_name（不读取）
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读域编号
+			uint_32 source_type=0;
+			while(controlledmessage[readProcess]!='#'){
+				source_type = source_type * 10;
+				source_type = source_type + controlledmessage[readProcess] - '0';
+				readProcess++;
+			}
+			readProcess++;
+			//读类型名(不读取)
+			while(controlledmessage[readProcess]!='#'){
+				++readProcess;
+			}
+			++readProcess;
+			//读类型编号
+			uint_32 target_type=0;
+			while(controlledmessage[readProcess]!='#'){
+				target_type = target_type * 10;
+				target_type = target_type + controlledmessage[readProcess] - '0';
+				readProcess++;
+			}
+			readProcess++;
+			//读客体类别（只有1位）
+			uint_32 target_class = 0;
+			target_class = controlledmessage[readProcess] - '0';
+			readProcess++;
+			readProcess++;
+			//读permission
+			uint_32 permission = 0;
+			while(controlledmessage[readProcess]!='\n'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+				permission = 2*permission;
+				permission = permission + controlledmessage[readProcess] - '0';
+				readProcess++;
+			}
+			addNewTe_node(
+				insert_te_node(source_type,target_type,target_class,permission),
+				&policydb
+			);
+			readProcess++;
+			break;
+		}
+		readProcess++;
+	}
 }	
 //配置安全策略解析模块		   
 struct file_operations fops0 = {
@@ -431,7 +486,7 @@ struct file_operations fops3 = {
 	write: write_accessControlMatrix, 
 }; 
 //初始化模块
-static void initialize_subject_domainMapping()
+static void initialize_subject_domainMapping(void)
 {
 	policydb.sub_dom_map_use = 0;
 	policydb.sdmap_policy_num = 0;

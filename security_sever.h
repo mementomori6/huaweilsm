@@ -193,7 +193,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		}
 		else{
 			struct te_node * find = policydb->te_avtab->te_node[answer];
-			while(find->next == NULL){
+			while(find->next != NULL){
 				find = find->next;
 			}
 			find->next = te_node;
@@ -212,7 +212,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		}
 		else{
 			struct wl_avtab_node * find = policydb->wl_avtab->wl_avtab_node[answer];
-			while(find->next == NULL){
+			while(find->next != NULL){
 				find = find->next;
 			}
 			find->next = wl_avtab_node;
@@ -231,7 +231,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		}
 		else{
 			struct sdmap_node *find = policydb->sub_dom_map->sdmap_node[answer];
-			while(find->next == NULL){
+			while(find->next != NULL){
 				find = find->next;
 			}
 			find->next = sdmap_node;
@@ -250,7 +250,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		}
 		else{
 			struct objtype_node * find = policydb->obj_type_map->objtype_node[answer];
-			while(find->next == NULL){
+			while(find->next != NULL){
 				find = find->next;
 			}
 			find->next = objtype_node;
