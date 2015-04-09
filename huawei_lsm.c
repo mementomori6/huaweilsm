@@ -758,6 +758,9 @@ void initialpolicydb(void){
 	policydb.sub_dom_map_use = 0;
 	policydb.sdmap_policy_num = 0;
 	int i = 0;
+	struct sdmap_node **sdmap_node;
+	sdmap_node = (sdmap_node **)vmalloc(struct policydb.sub_dom_map_size*sizeof(struct sdmap_node *));
+	policydb.sub_dom_map->sdmap_node = sdmap_node;
 	for( i = 0;i<policydb.sub_dom_map_size;++i){
 		policydb.sub_dom_map->sdmap_node[i] = NULL;
 	}
@@ -766,6 +769,8 @@ void initialpolicydb(void){
 	policydb.obj_type_map_size = HASH_MAX_LENGTH;
 	policydb.obj_type_map_use = 0;
 	policydb.otmap_policy_num = 0;
+	struct objtype_node **objtype_node = (struct objtype_node **)vmalloc(policydb.obj_type_map_size*sizeof(struct objtype_node *));
+	policydb.obj_type_map->objtype_node = objtype_node;
 	for( i = 0;i<policydb.obj_type_map_size;++i){
 		policydb.obj_type_map->objtype_node[i] = NULL;
 	}
@@ -774,6 +779,8 @@ void initialpolicydb(void){
 	policydb.wl_avtab_size = HASH_MAX_LENGTH;
 	policydb.wl_avtab_use = 0;
 	policydb.wl_policy_num = 0;
+	struct wl_avtab_node **wl_avtab_node = (struct wl_avtab_node **)vmalloc(policydb.wl_avtab_size *sizeof(struct wl_avtab_node *));
+	policydb.wl_avtab->wl_avtab_node = wl_avtab_node;
 	for( i = 0;i<policydb.wl_avtab_size;++i){
 		policydb.wl_avtab->wl_avtab_node[i] = NULL;
 	}
@@ -782,6 +789,8 @@ void initialpolicydb(void){
 	policydb.te_avtab_size = HASH_MAX_LENGTH;
 	policydb.te_avtab_use = 0;
 	policydb.te_policy_num = 0;
+	struct te_node **te_node = (struct te_node **)vmalloc(policydb.te_avtab_size *sizeof(struct te_node *));
+	policydb.te_avtab->te_node = te_node;
 	for( i = 0;i<policydb.te_avtab_size;++i){
 		policydb.te_avtab->te_node[i] = NULL;
 	}
