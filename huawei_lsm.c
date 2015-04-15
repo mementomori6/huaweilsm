@@ -513,7 +513,7 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 	enable_flag = 1;
 	int readProcess = 0;
 	//write rules
-		while(readProcess < len){
+/* 		while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -550,7 +550,7 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 			);
 		}
 		readProcess++;
-	}
+	} */
 	
 }
 static int write_object_typeMapping(int fd, char *buf, ssize_t len)
@@ -567,7 +567,7 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 	enable_flag = 1;
 	//write rules
 	int readProcess = 0;
-	while(readProcess < len){
+/* 	while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -604,7 +604,7 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 			);
 		}
 		readProcess++;
-	}
+	} */
 }
 static int write_whiteList(int fd, char *buf, ssize_t len)
 {
@@ -620,7 +620,7 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 	enable_flag = 1;
 	//write rules
 	int readProcess = 0;
-	while(readProcess < len){
+/* 	while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -667,6 +667,13 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 		}
 		readProcess++;
 	}
+	int counttest = 0;
+	for(;counttest<499;counttest ++){
+		struct wl_avtab_node *wl_test = policydb.wl_avtab->wl_avtab_node[counttest];
+		while(wl_test != NULL){
+			printk("source_name = %s,target_name = %s,target_class = %d,datum = %d",wl_test->key->source_name,wl_test->key->target_name,wl_test->key->target_class,wl_test->datum->permission);
+		}
+	} */
 }
 static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 {
@@ -682,7 +689,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 	enable_flag = 1;
 	int readProcess = 0;
 	//write rules
-	while(readProcess < len){
+/* 	while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -734,7 +741,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 			);
 		}
 		readProcess++;
-	}
+	} */
 }	
 //配置安全策略解析模块		   
 struct file_operations fops0 = {
@@ -759,8 +766,13 @@ void initialpolicydb(void){
 	policydb.sub_dom_map_use = 0;
 	policydb.sdmap_policy_num = 0;
 	int i = 0;
-	struct sdmap_node **sdmap_node = (struct sdmap_node **)vmalloc(policydb.sub_dom_map_size*sizeof(struct sdmap_node *));
+ 	struct sdmap_node **sdmap_node = (struct sdmap_node **)vmalloc(policydb.sub_dom_map_size*sizeof(struct sdmap_node *));
+	struct sub_dom_map *sub_dom_map = (struct sub_dom_map *)vmalloc(sizeof(struct sub_dom_map));
+	printk("sdmap_node success");
+	policydb.sub_dom_map = sub_dom_map;
+	printk("sub_dom_map success");
 	policydb.sub_dom_map->sdmap_node = sdmap_node; 
+	printk("sdmap_node success");
 	for( i = 0;i<policydb.sub_dom_map_size;++i){
 		policydb.sub_dom_map->sdmap_node[i] = NULL;
 	}
@@ -769,7 +781,9 @@ void initialpolicydb(void){
 	policydb.obj_type_map_size = HASH_MAX_LENGTH;
 	policydb.obj_type_map_use = 0;
 	policydb.otmap_policy_num = 0;
-	 struct objtype_node **objtype_node = (struct objtype_node **)vmalloc(policydb.obj_type_map_size*sizeof(struct objtype_node *));
+	struct objtype_node **objtype_node = (struct objtype_node **)vmalloc(policydb.obj_type_map_size*sizeof(struct objtype_node *));
+	struct obj_type_map *obj_type_map = (struct obj_type_map *)vmalloc(sizeof(struct obj_type_map));
+	policydb.obj_type_map = obj_type_map;	
 	policydb.obj_type_map->objtype_node = objtype_node; 
 	for( i = 0;i<policydb.obj_type_map_size;++i){
 		policydb.obj_type_map->objtype_node[i] = NULL;
@@ -780,6 +794,8 @@ void initialpolicydb(void){
 	policydb.wl_avtab_use = 0;
 	policydb.wl_policy_num = 0;
 	struct wl_avtab_node **wl_avtab_node = (struct wl_avtab_node **)vmalloc(policydb.wl_avtab_size *sizeof(struct wl_avtab_node *));
+	struct wl_avtab *wl_avtab = (struct wl_avtab *)vmalloc(sizeof(struct wl_avtab));
+	policydb.wl_avtab = wl_avtab;
 	policydb.wl_avtab->wl_avtab_node = wl_avtab_node; 
 	for( i = 0;i<policydb.wl_avtab_size;++i){
 		policydb.wl_avtab->wl_avtab_node[i] = NULL;
@@ -789,17 +805,19 @@ void initialpolicydb(void){
 	policydb.te_avtab_size = HASH_MAX_LENGTH;
 	policydb.te_avtab_use = 0;
 	policydb.te_policy_num = 0;
-	 struct te_node **te_node = (struct te_node **)vmalloc(policydb.te_avtab_size *sizeof(struct te_node *));
+	struct te_node **te_node = (struct te_node **)vmalloc(policydb.te_avtab_size *sizeof(struct te_node *));
+	struct te_avtab *te_avtab = (struct te_avtab *)vmalloc(sizeof(struct te_avtab));
+	 policydb.te_avtab = te_avtab;
 	policydb.te_avtab->te_node = te_node; 
 	for( i = 0;i<policydb.te_avtab_size;++i){
 		policydb.te_avtab->te_node[i] = NULL;
-	}
+	} 
 	
 }
 //挂载钩子点函数
 static struct security_operations lsm_ops=
 {
-	//file control
+	/* //file control
 	.file_permission = huawei_lsm_file_permission, //file_append_execute_read_write_databaseConnect,
 	.inode_link = huawei_lsm_inode_link, //file_link,
 	.inode_symlink = huawei_lsm_inode_symlink,//file_symlink
@@ -819,11 +837,11 @@ static struct security_operations lsm_ops=
 	.socket_sendmsg = huawei_lsm_socket_sendmsg, //socketAppend,
 	.socket_bind = huawei_lsm_socket_bind, //bind_nameBind,
 	.socket_create = huawei_lsm_socket_create, //network_create,
-	.socket_connect = huawei_lsm_socket_connect,
+	.socket_connect = huawei_lsm_socket_connect, 
 
 	//ddl,exec
 	.inode_setattr = huawei_lsm_inode_setattr,
-	.inode_permission = huawei_lsm_inode_permission,
+	.inode_permission = huawei_lsm_inode_permission,*/
 };
 
 //载入模块
@@ -837,10 +855,15 @@ static int __init lsm_init(void)
 	
     printk(KERN_INFO"LSM Module Init Success! \n");
 	initialpolicydb();
+	printk("db Init Success! \n");
 	ret_subjectDomainMapping = register_chrdev(123, "/dev/domainDefinition.cfg", &fops0); 	// 向系统注册设备结点文件
+	printk("ret_subjectDomainMapping Init Success! \n");
 	ret_objectTypeMapping = register_chrdev(123, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
+	printk("ret_objectTypeMapping Init Success! \n");
 	ret_whiteList = register_chrdev(123, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
+	printk("ret_whiteList Init Success! \n");
 	ret_accessControlMatrix = register_chrdev(123, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
+	printk("ret_accessControlMatrix Init Success! \n");
 	//if (ret != 0) printk("Can't register device file! \n"); 
 	
 
