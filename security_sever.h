@@ -160,16 +160,24 @@ struct wl_avtab{
 	}
 } */
 struct wl_avtab_node* insert_wl_avtab_node(char *source_name,char *target_name,uint32_t target_class,uint32_t permission){
+	printk("start insert_wl_avtab_node\n");
 	struct wl_avtab_node *wl_avtab_node = (struct wl_avtab_node*)vmalloc(sizeof(struct wl_avtab_node));
 	char *source_name_used = (char *)vmalloc(strlen(source_name)*sizeof(char));
 	strcpy(source_name_used,source_name);
-	wl_avtab_node->key->source_name = source_name_used;
+	struct wl_avtab_key *wl_avtab_key = (struct wl_avtab_key*)vmalloc(sizeof(struct wl_avtab_key));
+	wl_avtab_key->source_name = source_name_used;
+	//wl_avtab_node->key->source_name = source_name_used;
 	char *target_name_used = (char *)vmalloc(strlen(target_name)*sizeof(char));
 	strcpy(target_name_used,target_name);
-	wl_avtab_node->key->target_name = target_name_used;
-	wl_avtab_node->key->target_class = target_class;
-	wl_avtab_node->datum->permission = permission;
+	wl_avtab_key->target_name = target_name_used;
+	wl_avtab_key->target_class = target_class;
+	wl_avtab_node->key = wl_avtab_key;
+	struct wl_avtab_datum *wl_avtab_datum = (struct wl_avtab_datum*)vmalloc(sizeof(struct wl_avtab_datum));	
+	wl_avtab_datum->permission = permission;
+	wl_avtab_node->datum = wl_avtab_datum;
+	printk("alloc mem and strcpy success\n");
 	wl_avtab_node->next = NULL;
+	printk("wl_avtab_node= %s, %s, %d, %d\n",wl_avtab_node->key->source_name,wl_avtab_node->key->target_name,wl_avtab_node->key->target_class,wl_avtab_node->datum->permission);
 	return wl_avtab_node;
 }
 void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
@@ -178,6 +186,8 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 	}
 	vfree(wl_avtab_node->key->source_name);
 	vfree(wl_avtab_node->key->target_name);
+	vfree(wl_avtab_node->key);
+	vfree(wl_avtab_node->datum);
 	vfree(wl_avtab_node);
 }
 
@@ -204,32 +214,36 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 	}
 	void addNewWl_avtb_node(struct wl_avtab_node* wl_avtab_node,struct policydb *policydb){
 		//calculate hash
+		printk("start to addNewWl_avtb_node\n");printk("wl_avtab_node= %s, %s, %d, %d\n",wl_avtab_node->key->source_name,wl_avtab_node->key->target_name,wl_avtab_node->key->target_class,wl_avtab_node->datum->permission);
 		int origin = 0;
 		int i = 0;
-		for(i =0;strlen(wl_avtab_node->key->source_name[i]);++i){
+		for(i =0;i<strlen(wl_avtab_node->key->source_name);++i){
 			origin += wl_avtab_node->key->source_name[i];
 		}
 		int answer = origin%policydb->wl_avtab_size;
+		printk("hash sucess!\n");
 		//insert
 		if(policydb->wl_avtab->wl_avtab_node[answer] == NULL){
+			printk("NULL to insert!\n");
 			policydb->wl_avtab->wl_avtab_node[answer] = wl_avtab_node;
-			policydb->wl_avtab_use++;
-			policydb->wl_policy_num++;
+			policydb->wl_avtab_use += 1;
+			policydb->wl_policy_num += 1;
 		}
 		else{
+			printk("list to insert!\n");
 			struct wl_avtab_node * find = policydb->wl_avtab->wl_avtab_node[answer];
 			while(find->next != NULL){
 				find = find->next;
 			}
 			find->next = wl_avtab_node;
-			policydb->wl_policy_num++;
+			policydb->wl_policy_num++; 
 		}
 	}
 	void addNewSdmap_node(struct sdmap_node* sdmap_node,struct policydb *policydb){
 		//calculate hash
 		int origin = 0;
 		int i = 0;
-		for(i =0;strlen(sdmap_node->key->sub_name[i]);++i){
+		for(i =0;i<strlen(sdmap_node->key->sub_name);++i){
 			origin += sdmap_node->key->sub_name[i];
 		}
 		int answer = origin%policydb->sub_dom_map_size;
@@ -252,7 +266,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		//calculate hash
 		int origin = 0;
 		int i = 0;
-		for( i =0;strlen(objtype_node->key->obj_name[i]);++i){
+		for( i =0;i<strlen(objtype_node->key->obj_name);++i){
 			origin += objtype_node->key->obj_name[i];
 		}
 		int answer = origin%policydb->obj_type_map_size;

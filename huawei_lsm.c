@@ -608,6 +608,7 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 }
 static int write_whiteList(int fd, char *buf, ssize_t len)
 {
+	printk("start write_whiteList\n");
 	initialize_whiteList(&policydb);
 	memset(controlledmessage,0,8192);
 	if(len == 0)
@@ -616,11 +617,15 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 		printk("Can't get the controlled directory's name! \n");
 		printk("Something may be wrong, please check it! \n");
 	}
+	//test!
+	strcpy(controlledmessage,buf);
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
+	
+	
 	//write rules
 	int readProcess = 0;
-/* 	while(readProcess < len){
+ 	while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -637,15 +642,17 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 				++readProcess;
 			}
 			source_name[source_count]='\0';
+			printk("source_name = %s\n",source_name);			
 			++readProcess;
 			//读target_name
 			char target_name[MAX_LENGTH];
 			memset(target_name,0,MAX_LENGTH);
 			int target_count = 0;
 			while(controlledmessage[readProcess]!='#'){
-				source_name[target_count++] = controlledmessage[readProcess];
+				target_name[target_count++] = controlledmessage[readProcess];
 				++readProcess;
 			}
+			printk("target_name = %s\n",target_name);
 			target_name[target_count]='\0';
 			++readProcess;
 			//读target_type（只有1位）
@@ -653,13 +660,16 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 			target_type = controlledmessage[readProcess] - '0';
 			readProcess++;
 			readProcess++;
+			printk("target_type = %d\n",target_type);
 			//读permission
 			int permission = 0;
 			while(controlledmessage[readProcess]!='\n'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
-				target_type = 2*target_type;
-				target_type = target_type + controlledmessage[readProcess] - '0';
+				permission = 2*permission;
+				permission = permission + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
+			printk("permission = %d\n",permission);	
+			printk("start insert wl\n");
 			addNewWl_avtb_node(
 				insert_wl_avtab_node(source_name,target_name,target_type,permission),
 				&policydb
@@ -672,8 +682,9 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 		struct wl_avtab_node *wl_test = policydb.wl_avtab->wl_avtab_node[counttest];
 		while(wl_test != NULL){
 			printk("source_name = %s,target_name = %s,target_class = %d,datum = %d",wl_test->key->source_name,wl_test->key->target_name,wl_test->key->target_class,wl_test->datum->permission);
+			wl_test = wl_test->next;
 		}
-	} */
+	} 
 }
 static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 {
@@ -768,11 +779,8 @@ void initialpolicydb(void){
 	int i = 0;
  	struct sdmap_node **sdmap_node = (struct sdmap_node **)vmalloc(policydb.sub_dom_map_size*sizeof(struct sdmap_node *));
 	struct sub_dom_map *sub_dom_map = (struct sub_dom_map *)vmalloc(sizeof(struct sub_dom_map));
-	printk("sdmap_node success");
 	policydb.sub_dom_map = sub_dom_map;
-	printk("sub_dom_map success");
 	policydb.sub_dom_map->sdmap_node = sdmap_node; 
-	printk("sdmap_node success");
 	for( i = 0;i<policydb.sub_dom_map_size;++i){
 		policydb.sub_dom_map->sdmap_node[i] = NULL;
 	}
@@ -855,15 +863,16 @@ static int __init lsm_init(void)
 	
     printk(KERN_INFO"LSM Module Init Success! \n");
 	initialpolicydb();
-	printk("db Init Success! \n");
-	ret_subjectDomainMapping = register_chrdev(123, "/dev/domainDefinition.cfg", &fops0); 	// 向系统注册设备结点文件
-	printk("ret_subjectDomainMapping Init Success! \n");
-	ret_objectTypeMapping = register_chrdev(123, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
-	printk("ret_objectTypeMapping Init Success! \n");
-	ret_whiteList = register_chrdev(123, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
-	printk("ret_whiteList Init Success! \n");
-	ret_accessControlMatrix = register_chrdev(123, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
-	printk("ret_accessControlMatrix Init Success! \n");
+	ret_subjectDomainMapping = register_chrdev(123, "/dev/subject-domainMapping.cfg", &fops0); 	// 向系统注册设备结点文件
+	printk("ret_subjectDomainMapping Init Success! %d \n",ret_subjectDomainMapping);
+	ret_objectTypeMapping = register_chrdev(124, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
+	printk("ret_objectTypeMapping Init Success! %d \n",ret_objectTypeMapping);
+	ret_whiteList = register_chrdev(125, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
+	char *whiteListTest = "#source_name0#target_name0#3#00000010\n#source_name1#target_name1#5#00000100\n";
+	write_whiteList(1,whiteListTest,strlen(whiteListTest));
+	printk("ret_whiteList Init Success! %d \n",ret_whiteList);
+	ret_accessControlMatrix = register_chrdev(126, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
+	printk("ret_accessControlMatrix Init Success! %d \n",ret_accessControlMatrix);
 	//if (ret != 0) printk("Can't register device file! \n"); 
 	
 
