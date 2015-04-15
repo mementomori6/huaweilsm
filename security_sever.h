@@ -64,7 +64,7 @@ void free_te_node_list(struct te_node *te_node){
 	if(te_node->next != NULL){
 		free_te_node_list(te_node->next);
 	}
-	free(te_node);
+	vfree(te_node);
 }
 
 
@@ -95,8 +95,8 @@ void free_sdmap_node_list(struct sdmap_node *sdmap_node){
 	if(sdmap_node->next != NULL){
 		free_sdmap_node_list(sdmap_node->next);
 	}
-	free(sdmap_node->key->sub_name);
-	free(sdmap_node);
+	vfree(sdmap_node->key->sub_name);
+	vfree(sdmap_node);
 }
 
 
@@ -132,8 +132,8 @@ void free_objtype_node_list(struct objtype_node *objtype_node){
 	if(objtype_node->next != NULL){
 		free_objtype_node_list(objtype_node->next);
 	}
-	free(objtype_node->key->obj_name);
-	free(objtype_node);
+	vfree(objtype_node->key->obj_name);
+	vfree(objtype_node);
 }
 
 
@@ -176,9 +176,9 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 	if(wl_avtab_node->next != NULL){
 		free_wl_avtab_node_list(wl_avtab_node->next);
 	}
-	free(wl_avtab_node->key->source_name);
-	free(wl_avtab_node->key->target_name);
-	free(wl_avtab_node);
+	vfree(wl_avtab_node->key->source_name);
+	vfree(wl_avtab_node->key->target_name);
+	vfree(wl_avtab_node);
 }
 
 
@@ -297,17 +297,6 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 	return ret;
 }
 //白名单查询(0允许，1禁止，-1未定义)
-int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
-	if(source_name == NULL || target_name == NULL)
-		return 0;
-	int origin = 0;
-	int i = 0;
-		for( i =0;strlen(source_name);++i){
-			origin += source_name[i];
-		}
-	int answer = origin%policydb->wl_avtab_size;
-	return checkwl_note(answer,source_name,target_name,target_class,request,&policydb);
-}
 int checkwl_note(int answer,char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
 	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
 	while(find != NULL){
@@ -322,6 +311,18 @@ int checkwl_note(int answer,char* source_name, char* target_name, uint32_t targe
 	}
 	return -1;
 }
+int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
+	if(source_name == NULL || target_name == NULL)
+		return 0;
+	int origin = 0;
+	int i = 0;
+		for( i =0;strlen(source_name);++i){
+			origin += source_name[i];
+		}
+	int answer = origin%policydb->wl_avtab_size;
+	return checkwl_note(answer,source_name,target_name,target_class,request,&policydb);
+}
+
 //通用访问控制查询(1禁止，0允许)
 int te_avtab_check (int source_type, int target_type, uint32_t target_class, uint32_t request,struct policydb *policydb){
 	int origin = source_type+target_type+target_class;

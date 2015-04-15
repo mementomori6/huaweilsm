@@ -80,7 +80,8 @@ const char *get_current_process_full_path(void)
 				char *p;
 				if (buf == NULL) return NULL;
 				memset(buf, 0, PAGE_SIZE);
-				p = d_path(vma->vm_file->f_dentry, vma->vm_file->f_vfsmnt, buf, PAGE_SIZE);
+				//const struct *path = vma->vm_file->f_path;
+				p = d_path(&vma->vm_file->f_path, buf, PAGE_SIZE);
 				if (!IS_ERR(p)) {
 					memmove(buf, p, strlen(p) + 1);
 					//printk("%s \n",buf);
@@ -102,7 +103,7 @@ static char* get_process_full_path(struct task_struct * task) {
                 char *buffer = kmalloc(PAGE_SIZE, GFP_KERNEL);
                 char *p;
                 memset(buffer, 0, PAGE_SIZE);
-                p = d_path(vma->vm_file->f_dentry, vma->vm_file->f_vfsmnt, buffer, PAGE_SIZE);
+                p = d_path(&vma->vm_file->f_path, buffer, PAGE_SIZE);
                 if(!IS_ERR(p)) {
                     memmove(buffer, p, strlen(p) + 1);
                     //printk("%s\n", buffer);
@@ -442,7 +443,59 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
     }
 } */
 
-
+//初始化模块
+ void initialize_subject_domainMapping(struct policydb *policydb)
+{
+	policydb->sub_dom_map_use = 0;
+	policydb->sdmap_policy_num = 0;
+	int i = 0;
+	int size = policydb->sub_dom_map_size;
+	for( i = 0;i<size;++i){
+		if(policydb->sub_dom_map->sdmap_node[i] != NULL){
+			free_sdmap_node_list(policydb->sub_dom_map->sdmap_node[i]);
+			policydb->sub_dom_map->sdmap_node[i] = NULL;
+		}
+	}
+}
+ void initialize_object_typeMapping(struct policydb *policydb)
+{
+	policydb->obj_type_map_use = 0;
+	policydb->otmap_policy_num = 0;
+	int i = 0;
+	int size = policydb->obj_type_map_size;
+	for(i = 0;i<size;++i){
+		if(policydb->obj_type_map->objtype_node[i] != NULL){
+			free_objtype_node_list(policydb->obj_type_map->objtype_node[i] );
+			policydb->obj_type_map->objtype_node[i] = NULL;
+		}
+	}
+}
+ void initialize_whiteList(struct policydb *policydb)
+{
+	policydb->wl_avtab_use = 0;
+	policydb->wl_policy_num = 0;
+	int i = 0;
+	int size = policydb->wl_avtab_size;
+	for(i = 0;i<size;++i){
+		if(policydb->wl_avtab->wl_avtab_node[i] != NULL){
+			free_wl_avtab_node_list(policydb->wl_avtab->wl_avtab_node[i]);
+			policydb->wl_avtab->wl_avtab_node[i] = NULL;
+		}
+	}
+}
+ void initialize_accessControlMatrix(struct policydb *policydb)
+{
+	policydb->te_avtab_use = 0;
+	policydb->te_policy_num = 0;
+	int i = 0;
+	int size = policydb->te_avtab_size;
+	for(i = 0;i<size;++i){
+		if(policydb->te_avtab->te_node[i] != NULL){
+			free_te_node_list(policydb->te_avtab->te_node[i]);
+			policydb->te_avtab->te_node[i] = NULL;
+		}
+	}
+}
 
 
 //安全策略解析
@@ -700,67 +753,14 @@ struct file_operations fops3 = {
 	owner:THIS_MODULE, 
 	write: write_accessControlMatrix, 
 }; 
-//初始化模块
- void initialize_subject_domainMapping(struct policydb *policydb)
-{
-	policydb->sub_dom_map_use = 0;
-	policydb->sdmap_policy_num = 0;
-	int i = 0;
-	int size = policydb->sub_dom_map_size;
-	for( i = 0;i<size;++i){
-		if(policydb->sub_dom_map->sdmap_node[i] != NULL){
-			free_admap_node_list(policydb->sub_dom_map->sdmap_node[i]);
-			policydb->sub_dom_map->sdmap_node[i] = NULL;
-		}
-	}
-}
- void initialize_object_typeMapping(struct policydb *policydb)
-{
-	policydb->obj_type_map_use = 0;
-	policydb->otmap_policy_num = 0;
-	int i = 0;
-	int size = policydb->obj_type_map_size;
-	for(i = 0;i<size;++i){
-		if(policydb->obj_type_map->objtype_node[i] != NULL){
-			free_objtype_node_list(policydb->obj_type_map->objtype_node[i] );
-			policydb->obj_type_map->objtype_node[i] = NULL;
-		}
-	}
-}
- void initialize_whiteList(struct policydb *policydb)
-{
-	policydb->wl_avtab_use = 0;
-	policydb->wl_policy_num = 0;
-	int i = 0;
-	int size = policydb->wl_avtab_size;
-	for(i = 0;i<size;++i){
-		if(policydb->wl_avtab->wl_avtab_node[i] != NULL){
-			free_wl_avtab_node_list(policydb->wl_avtab->wl_avtab_node[i]);
-			policydb->wl_avtab->wl_avtab_node[i] = NULL;
-		}
-	}
-}
- void initialize_accessControlMatrix(struct policydb *policydb)
-{
-	policydb->te_avtab_use = 0;
-	policydb->te_policy_num = 0;
-	int i = 0;
-	int size = policydb->te_avtab_size;
-	for(i = 0;i<size;++i){
-		if(policydb->te_avtab->te_node[i] != NULL){
-			free_te_node_list(policydb->te_avtab->te_node[i]);
-			policydb->te_avtab->te_node[i] = NULL;
-		}
-	}
-}
+
 void initialpolicydb(void){
 	policydb.sub_dom_map_size = HASH_MAX_LENGTH;
 	policydb.sub_dom_map_use = 0;
 	policydb.sdmap_policy_num = 0;
 	int i = 0;
-	struct sdmap_node **sdmap_node;
-	sdmap_node = (sdmap_node **)vmalloc(struct policydb.sub_dom_map_size*sizeof(struct sdmap_node *));
-	policydb.sub_dom_map->sdmap_node = sdmap_node;
+	struct sdmap_node **sdmap_node = (struct sdmap_node **)vmalloc(policydb.sub_dom_map_size*sizeof(struct sdmap_node *));
+	policydb.sub_dom_map->sdmap_node = sdmap_node; 
 	for( i = 0;i<policydb.sub_dom_map_size;++i){
 		policydb.sub_dom_map->sdmap_node[i] = NULL;
 	}
@@ -769,8 +769,8 @@ void initialpolicydb(void){
 	policydb.obj_type_map_size = HASH_MAX_LENGTH;
 	policydb.obj_type_map_use = 0;
 	policydb.otmap_policy_num = 0;
-	struct objtype_node **objtype_node = (struct objtype_node **)vmalloc(policydb.obj_type_map_size*sizeof(struct objtype_node *));
-	policydb.obj_type_map->objtype_node = objtype_node;
+	 struct objtype_node **objtype_node = (struct objtype_node **)vmalloc(policydb.obj_type_map_size*sizeof(struct objtype_node *));
+	policydb.obj_type_map->objtype_node = objtype_node; 
 	for( i = 0;i<policydb.obj_type_map_size;++i){
 		policydb.obj_type_map->objtype_node[i] = NULL;
 	}
@@ -780,7 +780,7 @@ void initialpolicydb(void){
 	policydb.wl_avtab_use = 0;
 	policydb.wl_policy_num = 0;
 	struct wl_avtab_node **wl_avtab_node = (struct wl_avtab_node **)vmalloc(policydb.wl_avtab_size *sizeof(struct wl_avtab_node *));
-	policydb.wl_avtab->wl_avtab_node = wl_avtab_node;
+	policydb.wl_avtab->wl_avtab_node = wl_avtab_node; 
 	for( i = 0;i<policydb.wl_avtab_size;++i){
 		policydb.wl_avtab->wl_avtab_node[i] = NULL;
 	}
@@ -789,8 +789,8 @@ void initialpolicydb(void){
 	policydb.te_avtab_size = HASH_MAX_LENGTH;
 	policydb.te_avtab_use = 0;
 	policydb.te_policy_num = 0;
-	struct te_node **te_node = (struct te_node **)vmalloc(policydb.te_avtab_size *sizeof(struct te_node *));
-	policydb.te_avtab->te_node = te_node;
+	 struct te_node **te_node = (struct te_node **)vmalloc(policydb.te_avtab_size *sizeof(struct te_node *));
+	policydb.te_avtab->te_node = te_node; 
 	for( i = 0;i<policydb.te_avtab_size;++i){
 		policydb.te_avtab->te_node[i] = NULL;
 	}
@@ -826,7 +826,6 @@ static struct security_operations lsm_ops=
 	.inode_permission = huawei_lsm_inode_permission,
 };
 
-static int secondary=0;
 //载入模块
 static int __init lsm_init(void)
 {
@@ -834,12 +833,6 @@ static int __init lsm_init(void)
     if(register_security(&lsm_ops))
           {
         printk(KERN_INFO"Failure registering LSM module with kernel\n");
-        if(mod_reg_security(KBUILD_MODNAME, &lsm_ops))
-                     {
-            printk(KERN_INFO"Failure reigstering LSM module with primary module\n");
-            return 1;
-                     }
-        secondary=1;
            }
 	
     printk(KERN_INFO"LSM Module Init Success! \n");
@@ -856,15 +849,6 @@ static int __init lsm_init(void)
 //注销模块
 static void __exit lsm_exit(void)
 {
-    if(secondary)
-          {
-        mod_unreg_security(KBUILD_MODNAME,&lsm_ops);
-          }
-    else
-          {
-        unregister_security(&lsm_ops);
-          }
-
     printk(KERN_INFO"LSM Module unregistered.....\n");
 	unregister_chrdev(123, "procinfo");	 // 向系统注销设备结点文件 
 	
