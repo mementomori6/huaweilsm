@@ -536,18 +536,18 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 			++readProcess;
 			//读obj_domain_name(不读取)
 			while(controlledmessage[readProcess]!='#'){
+				printk("%c",controlledmessage[readProcess]);
 				++readProcess;
 			}
 			++readProcess;
 			//读obj_type
 			int obj_type = 0;
-			while(controlledmessage[readProcess]!='#'){
+			while(controlledmessage[readProcess]!='\n'){
 				obj_type = obj_type*10;
 				obj_type = obj_type + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
 			printk("obj_type = %d\n",obj_type);
-			readProcess++;
 			addNewObjtype_node(
 				insert_objtype_node(obj_name,obj_type),
 				&policydb
@@ -555,7 +555,17 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 		}
 		readProcess++;
 	} 
-	
+		printk("check object type map\n");
+	int counttest = 0;
+	for(;counttest<499;counttest ++){
+		struct objtype_node *wl_test = policydb.obj_type_map->objtype_node[counttest];
+		while(wl_test != NULL){
+			printk("obj_name = %s,obj_type = %d\n",
+			wl_test->key->obj_name,
+			wl_test->datum->obj_type);
+			wl_test = wl_test->next;
+		}
+	}
 }
 static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 {
@@ -599,13 +609,12 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 			++readProcess;
 			//读sub_domain
 			int sub_domain = 0;
-			while(controlledmessage[readProcess]!='#'){
+			while(controlledmessage[readProcess]!='\n'){
 				sub_domain = sub_domain*10;
 				sub_domain = sub_domain + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
 			printk("sub_domain = %d\n",sub_domain);
-			readProcess++;
 			addNewSdmap_node(
 				insert_sdmap_node(sub_name,sub_domain),
 				&policydb
@@ -618,7 +627,7 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 	for(;counttest<499;counttest ++){
 		struct sdmap_node *wl_test = policydb.sub_dom_map->sdmap_node[counttest];
 		while(wl_test != NULL){
-			printk("sub_name = %d,sub_domain = %d\n",
+			printk("sub_name = %s,sub_domain = %d\n",
 			wl_test->key->sub_name,
 			wl_test->datum->sub_domain);
 			wl_test = wl_test->next;
@@ -901,6 +910,10 @@ static int __init lsm_init(void)
 	printk("ret_whiteList Init Success! %d \n",ret_whiteList);
 	//char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n";
 	//write_accessControlMatrix(1,ac,strlen(ac));
+	char *ob = "#obj_name0#log_t#1\n#obj_name1#config_t#0\n";
+	char *su = "#sub_name0#admin_t#0\n#sub_name1#config_t#1\n#sub_name2#admin_t#0\n";
+	write_object_typeMapping(1,ob,strlen(ob));
+	write_subject_domainMapping(1,su,strlen(su));
 	ret_accessControlMatrix = register_chrdev(126, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
 	printk("ret_accessControlMatrix Init Success! %d \n",ret_accessControlMatrix);
 	//if (ret != 0) printk("Can't register device file! \n"); 
