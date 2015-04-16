@@ -617,8 +617,7 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 		printk("Can't get the controlled directory's name! \n");
 		printk("Something may be wrong, please check it! \n");
 	}
-	//test!
-	strcpy(controlledmessage,buf);
+
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
 	
@@ -677,14 +676,7 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 		}
 		readProcess++;
 	}
-	int counttest = 0;
-	for(;counttest<499;counttest ++){
-		struct wl_avtab_node *wl_test = policydb.wl_avtab->wl_avtab_node[counttest];
-		while(wl_test != NULL){
-			printk("source_name = %s,target_name = %s,target_class = %d,datum = %d",wl_test->key->source_name,wl_test->key->target_name,wl_test->key->target_class,wl_test->datum->permission);
-			wl_test = wl_test->next;
-		}
-	} 
+ 
 }
 static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 {
@@ -696,11 +688,13 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 		printk("Can't get the controlled directory's name! \n");
 		printk("Something may be wrong, please check it! \n");
 	}
+	//test!
+	strcpy(controlledmessage,buf);
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
 	int readProcess = 0;
 	//write rules
-/* 	while(readProcess < len){
+ 	while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -720,6 +714,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 				source_type = source_type + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
+			printk("source_type = %d",source_type);
 			readProcess++;
 			//读类型名(不读取)
 			while(controlledmessage[readProcess]!='#'){
@@ -733,12 +728,14 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 				target_type = target_type + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
+			printk("target_type = %d",target_type);
 			readProcess++;
 			//读客体类别（只有1位）
 			int target_class = 0;
 			target_class = controlledmessage[readProcess] - '0';
 			readProcess++;
 			readProcess++;
+			printk("target_class = %d",target_class);
 			//读permission
 			int permission = 0;
 			while(controlledmessage[readProcess]!='\n'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
@@ -746,13 +743,27 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 				permission = permission + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
+			printk("permission = %d\n",permission);
 			addNewTe_node(
 				insert_te_node(source_type,target_type,target_class,permission),
 				&policydb
 			);
 		}
 		readProcess++;
-	} */
+	} 
+	printk("check\n");
+	int counttest = 0;
+	for(;counttest<499;counttest ++){
+		
+		struct te_node *wl_test = policydb.te_avtab->te_node[counttest];
+		while(wl_test != NULL){
+			printk("source_name = %d,target_name = %d,target_class = %d,permission = %d\n",wl_test->key->source_type,
+			wl_test->key->target_type,
+			wl_test->key->target_class,
+			wl_test->datum->permission);
+			wl_test = wl_test->next;
+		}
+	}
 }	
 //配置安全策略解析模块		   
 struct file_operations fops0 = {
@@ -868,9 +879,9 @@ static int __init lsm_init(void)
 	ret_objectTypeMapping = register_chrdev(124, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
 	printk("ret_objectTypeMapping Init Success! %d \n",ret_objectTypeMapping);
 	ret_whiteList = register_chrdev(125, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
-	char *whiteListTest = "#source_name0#target_name0#3#00000010\n#source_name1#target_name1#5#00000100\n";
-	write_whiteList(1,whiteListTest,strlen(whiteListTest));
 	printk("ret_whiteList Init Success! %d \n",ret_whiteList);
+	char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n";
+	write_accessControlMatrix(1,ac,strlen(ac));
 	ret_accessControlMatrix = register_chrdev(126, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
 	printk("ret_accessControlMatrix Init Success! %d \n",ret_accessControlMatrix);
 	//if (ret != 0) printk("Can't register device file! \n"); 

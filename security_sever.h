@@ -54,16 +54,24 @@ struct te_avtab_datum{
 };
 struct te_node *insert_te_node(uint32_t source_type,uint32_t target_type,uint32_t target_class,uint32_t permission){
 	struct te_node *te_node = (struct te_node*)vmalloc(sizeof(struct te_node));
-	te_node->key->source_type = source_type;
-	te_node->key->target_type = target_type;
-	te_node->key->target_class = target_class;
-	te_node->datum = permission;
+	struct te_avtab_key *te_avtab_key = (struct te_avtab_key*)vmalloc(sizeof(struct te_avtab_key));
+	te_avtab_key->source_type = source_type;
+	te_avtab_key->target_type = target_type;
+	te_avtab_key->target_class = target_class;
+	te_node->key = te_avtab_key;
+	printk("create te_node half \n");
+	struct te_avtab_datum *te_avtab_datum = (struct te_avtab_datum*)vmalloc(sizeof(struct te_avtab_datum));
+	te_avtab_datum->permission = permission;
+	te_node->datum = te_avtab_datum;
 	te_node->next = NULL;
+	return te_node;
 }
 void free_te_node_list(struct te_node *te_node){
 	if(te_node->next != NULL){
 		free_te_node_list(te_node->next);
 	}
+	vfree(te_node->key);
+	vfree(te_node->datum);
 	vfree(te_node);
 }
 
@@ -90,6 +98,7 @@ struct sdmap_node *insert_sdmap_node(char *sub_name,uint32_t sub_domain){
 	sdmap_node->key->sub_name = sub_name_use;
 	sdmap_node->datum = sub_domain;
 	sdmap_node->next = NULL;
+	return sdmap_node;
 }
 void free_sdmap_node_list(struct sdmap_node *sdmap_node){
 	if(sdmap_node->next != NULL){
@@ -127,6 +136,7 @@ struct objtype_node *insert_objtype_node(char *obj_name,uint32_t obj_type){
 	objtype_node->key->obj_name = obj_name_use;
 	objtype_node->datum = obj_type;
 	objtype_node->next = NULL;
+	return objtype_node;
 }
 void free_objtype_node_list(struct objtype_node *objtype_node){
 	if(objtype_node->next != NULL){
@@ -195,15 +205,18 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 
 	void addNewTe_node(struct te_node *te_node,struct policydb *policydb){
 		//calculate hash
+		printk("add new te_node\n");
 		int origin = te_node->key->source_type + te_node->key->target_type + te_node->key->target_class ;
 		int answer = origin%policydb->te_avtab_size;
 		//insert
 		if(policydb->te_avtab->te_node[answer] == NULL){
+			printk("insert from empty\n");
 			policydb->te_avtab->te_node[answer] = te_node;
 			policydb->te_avtab_use++; 
 			policydb->te_policy_num++;
 		}
 		else{
+			printk("insert from exist\n");
 			struct te_node * find = policydb->te_avtab->te_node[answer];
 			while(find->next != NULL){
 				find = find->next;
@@ -211,6 +224,7 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 			find->next = te_node;
 			policydb->te_policy_num++;
 		}
+		printk("add new te_node successful!\n");
 	}
 	void addNewWl_avtb_node(struct wl_avtab_node* wl_avtab_node,struct policydb *policydb){
 		//calculate hash
