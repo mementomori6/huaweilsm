@@ -95,8 +95,12 @@ struct sdmap_node *insert_sdmap_node(char *sub_name,uint32_t sub_domain){
 	struct sdmap_node *sdmap_node = (struct sdmap_node*)vmalloc(sizeof(struct sdmap_node));
 	char* sub_name_use = (char *)vmalloc(strlen(sub_name)*sizeof(char));
 	strcpy(sub_name_use,sub_name);
-	sdmap_node->key->sub_name = sub_name_use;
-	sdmap_node->datum = sub_domain;
+	struct sdmap_key *sdmap_key = (struct sdmap_key*)vmalloc(sizeof(struct sdmap_key));
+	sdmap_key->sub_name = sub_name_use;
+	sdmap_node->key = sdmap_key;
+	struct sdmap_datum *sdmap_datum = (struct sdmap_datum*)vmalloc(sizeof(struct sdmap_datum));
+	sdmap_datum->sub_domain = sub_domain;
+	sdmap_node->datum = sdmap_datum;
 	sdmap_node->next = NULL;
 	return sdmap_node;
 }
@@ -105,6 +109,8 @@ void free_sdmap_node_list(struct sdmap_node *sdmap_node){
 		free_sdmap_node_list(sdmap_node->next);
 	}
 	vfree(sdmap_node->key->sub_name);
+	vfree(sdmap_node->key);
+	vfree(sdmap_node->datum);
 	vfree(sdmap_node);
 }
 
@@ -133,8 +139,12 @@ struct objtype_node *insert_objtype_node(char *obj_name,uint32_t obj_type){
 	struct objtype_node *objtype_node = (struct objtype_node*)vmalloc(sizeof(struct objtype_node));
 	char* obj_name_use = (char *)vmalloc(strlen(obj_name)*sizeof(char));
 	strcpy(obj_name_use,obj_name);
-	objtype_node->key->obj_name = obj_name_use;
-	objtype_node->datum = obj_type;
+	struct objtype_key *objtype_key = (struct objtype_key*)vmalloc(sizeof(struct objtype_key));
+	objtype_key->obj_name = obj_name_use;
+	objtype_node->key = objtype_key;
+	struct objtype_datum *objtype_datum = (struct objtype_datum*)vmalloc(sizeof(struct objtype_datum));
+	objtype_datum->obj_type = obj_type;
+	objtype_node->datum = objtype_datum;
 	objtype_node->next = NULL;
 	return objtype_node;
 }
@@ -143,6 +153,8 @@ void free_objtype_node_list(struct objtype_node *objtype_node){
 		free_objtype_node_list(objtype_node->next);
 	}
 	vfree(objtype_node->key->obj_name);
+	vfree(objtype_node->key);
+	vfree(objtype_node->datum);
 	vfree(objtype_node);
 }
 

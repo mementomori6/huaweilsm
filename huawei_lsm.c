@@ -499,9 +499,9 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 
 
 //安全策略解析
-static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
+static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 {
-	initialize_subject_domainMapping(&policydb);
+	initialize_object_typeMapping(&policydb);
 	memset(controlledmessage,0,8192);
 	if(len == 0)
 		return len;
@@ -509,11 +509,13 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 		printk("Can't get the controlled directory's name! \n");
 		printk("Something may be wrong, please check it! \n");
 	}
+	//test!
+	strcpy(controlledmessage,buf);
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
 	int readProcess = 0;
 	//write rules
-/* 		while(readProcess < len){
+ 		while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -530,6 +532,7 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 				++readProcess;
 			}
 			obj_name[source_count]='\0';
+			printk("obj_name = %s\n",obj_name);
 			++readProcess;
 			//读obj_domain_name(不读取)
 			while(controlledmessage[readProcess]!='#'){
@@ -543,6 +546,7 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 				obj_type = obj_type + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
+			printk("obj_type = %d\n",obj_type);
 			readProcess++;
 			addNewObjtype_node(
 				insert_objtype_node(obj_name,obj_type),
@@ -550,12 +554,12 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 			);
 		}
 		readProcess++;
-	} */
+	} 
 	
 }
-static int write_object_typeMapping(int fd, char *buf, ssize_t len)
+static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 {
-	initialize_object_typeMapping(&policydb);
+	initialize_subject_domainMapping(&policydb);
 	memset(controlledmessage,0,8192);
 	if(len == 0)
 		return len;
@@ -565,9 +569,11 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 	}
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
+	//test!
+	strcpy(controlledmessage,buf);
 	//write rules
 	int readProcess = 0;
-/* 	while(readProcess < len){
+ 	while(readProcess < len){
 		//读每行数据（即一个完整数据）
 		while(controlledmessage[readProcess]!='\n'){
 			//读数据开头
@@ -584,6 +590,7 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 				++readProcess;
 			}
 			sub_name[source_count]='\0';
+			printk("sub_name = %s\n",sub_name);
 			++readProcess;
 			//读domain_name(不读取)
 			while(controlledmessage[readProcess]!='#'){
@@ -597,6 +604,7 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 				sub_domain = sub_domain + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
+			printk("sub_domain = %d\n",sub_domain);
 			readProcess++;
 			addNewSdmap_node(
 				insert_sdmap_node(sub_name,sub_domain),
@@ -604,7 +612,18 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 			);
 		}
 		readProcess++;
-	} */
+	} 
+	printk("check subject dmain map\n");
+	int counttest = 0;
+	for(;counttest<499;counttest ++){
+		struct sdmap_node *wl_test = policydb.sub_dom_map->sdmap_node[counttest];
+		while(wl_test != NULL){
+			printk("sub_name = %d,sub_domain = %d\n",
+			wl_test->key->sub_name,
+			wl_test->datum->sub_domain);
+			wl_test = wl_test->next;
+		}
+	}
 }
 static int write_whiteList(int fd, char *buf, ssize_t len)
 {
@@ -689,7 +708,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 		printk("Something may be wrong, please check it! \n");
 	}
 	//test!
-	strcpy(controlledmessage,buf);
+	//strcpy(controlledmessage,buf);
 	controlledmessage[len] = '\0';
 	enable_flag = 1;
 	int readProcess = 0;
@@ -751,7 +770,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 		}
 		readProcess++;
 	} 
-	printk("check\n");
+	/*printk("check\n");
 	int counttest = 0;
 	for(;counttest<499;counttest ++){
 		
@@ -763,7 +782,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 			wl_test->datum->permission);
 			wl_test = wl_test->next;
 		}
-	}
+	} */
 }	
 //配置安全策略解析模块		   
 struct file_operations fops0 = {
@@ -880,8 +899,8 @@ static int __init lsm_init(void)
 	printk("ret_objectTypeMapping Init Success! %d \n",ret_objectTypeMapping);
 	ret_whiteList = register_chrdev(125, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
 	printk("ret_whiteList Init Success! %d \n",ret_whiteList);
-	char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n";
-	write_accessControlMatrix(1,ac,strlen(ac));
+	//char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n";
+	//write_accessControlMatrix(1,ac,strlen(ac));
 	ret_accessControlMatrix = register_chrdev(126, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
 	printk("ret_accessControlMatrix Init Success! %d \n",ret_accessControlMatrix);
 	//if (ret != 0) printk("Can't register device file! \n"); 
