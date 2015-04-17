@@ -340,7 +340,7 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 
 int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
 	printk("wl_avtab_check\n");
-	if(source_name == NULL || target_name == NULL)
+	if(source_name == NULL || target_name == NULL || strlen(source_name) == 0 || strlen(target_name) == 0 )
 		return 0;
 	int origin = 0;
 	int i = 0;
