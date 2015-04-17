@@ -318,7 +318,7 @@ uint32_t sub_dom_map_check(char *sub_name,struct policydb *policydb){
 		return 0;
 	uint32_t ret = 0;
 	int i = 0;
-	for(i = 0;strlen(sub_name[i]);++i){
+	for(i = 0;i<strlen(sub_name);++i){
 		ret += sub_name[i];
 	}
 	ret = ret%policydb->sub_dom_map_size;
@@ -330,14 +330,25 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 		return 0;
 	uint32_t ret = 0;
 	int i = 0;
-	for( i = 0;strlen(obj_name);++i){
+	for( i = 0;i<strlen(obj_name);++i){
 		ret += obj_name[i];
 	}
 	ret = ret%policydb->otmap_policy_num;
 	return ret;
 }
 //白名单查询(0允许，1禁止，-1未定义)
-int checkwl_note(int answer,char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
+
+int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
+	printk("wl_avtab_check\n");
+	if(source_name == NULL || target_name == NULL)
+		return 0;
+	int origin = 0;
+	int i = 0;
+		for(;i<strlen(source_name);++i){
+			origin += source_name[i];
+		}
+	int answer = origin%policydb->wl_avtab_size;
+	printk("answer = %d\n",answer);
 	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
 	while(find != NULL){
 		if(strcmp(source_name,find->key->source_name)==0 && strcmp(target_name,find->key->target_name)==0 && find->key->target_class == target_class){
@@ -351,23 +362,15 @@ int checkwl_note(int answer,char* source_name, char* target_name, uint32_t targe
 	}
 	return -1;
 }
-int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
-	if(source_name == NULL || target_name == NULL)
-		return 0;
-	int origin = 0;
-	int i = 0;
-		for( i =0;strlen(source_name);++i){
-			origin += source_name[i];
-		}
-	int answer = origin%policydb->wl_avtab_size;
-	return checkwl_note(answer,source_name,target_name,target_class,request,&policydb);
-}
 
 //通用访问控制查询(1禁止，0允许)
 int te_avtab_check (int source_type, int target_type, uint32_t target_class, uint32_t request,struct policydb *policydb){
+	printk("te_avtab_check\n");
 	int origin = source_type+target_type+target_class;
 	int answer = origin%policydb->te_policy_num;
+	printk("te_avtab_check answer = %d\n",answer);
 	struct te_node *find = policydb->te_avtab->te_node[answer];
+	printk("check te_node\n");
 	while(find != NULL){
 		if(source_type == find->key->source_type && target_type == find->key->target_type && target_class == find->key->target_class){
 			int policy = (find->datum);
