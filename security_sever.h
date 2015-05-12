@@ -8,7 +8,19 @@
 #include <linux/kernel.h>
 #include <linux/vmalloc.h>
 #define  HASH_MAX_LENGTH  499 ;
+// hash 
+unsigned int BKDRHash(char *str)
+{
+    unsigned int seed = 131; // 31 131 1313 13131 131313 etc..
+    unsigned int hash = 0;
 
+    while (*str)
+    {
+        hash = hash * seed + (*str++);
+    }
+
+    return (hash & 0x7FFFFFFF);
+}
 //安全策略库数据结构设计
 struct policydb{
 	struct te_avtab *te_avtab;
@@ -240,12 +252,13 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 	}
 	void addNewWl_avtb_node(struct wl_avtab_node* wl_avtab_node,struct policydb *policydb){
 		//calculate hash
-		printk("start to addNewWl_avtb_node\n");printk("wl_avtab_node= %s, %s, %d, %d\n",wl_avtab_node->key->source_name,wl_avtab_node->key->target_name,wl_avtab_node->key->target_class,wl_avtab_node->datum->permission);
+		//printk("start to addNewWl_avtb_node\n");printk("wl_avtab_node= %s, %s, %d, %d\n",wl_avtab_node->key->source_name,wl_avtab_node->key->target_name,wl_avtab_node->key->target_class,wl_avtab_node->datum->permission);
 		int origin = 0;
 		int i = 0;
-		for(i =0;i<strlen(wl_avtab_node->key->source_name);++i){
+/* 		for(i =0;i<strlen(wl_avtab_node->key->source_name);++i){
 			origin += wl_avtab_node->key->source_name[i];
-		}
+		} */
+		origin = BKDRHash(wl_avtab_node->key->source_name);
 		int answer = origin%policydb->wl_avtab_size;
 		printk("hash sucess!\n");
 		//insert
@@ -269,9 +282,10 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		//calculate hash
 		int origin = 0;
 		int i = 0;
-		for(i =0;i<strlen(sdmap_node->key->sub_name);++i){
+		/* for(i =0;i<strlen(sdmap_node->key->sub_name);++i){
 			origin += sdmap_node->key->sub_name[i];
-		}
+		} */
+		origin = BKDRHash(sdmap_node->key->sub_name);
 		int answer = origin%policydb->sub_dom_map_size;
 		//insert
 		if(policydb->sub_dom_map->sdmap_node[answer] == NULL){
@@ -292,9 +306,10 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		//calculate hash
 		int origin = 0;
 		int i = 0;
-		for( i =0;i<strlen(objtype_node->key->obj_name);++i){
+		/* for( i =0;i<strlen(objtype_node->key->obj_name);++i){
 			origin += objtype_node->key->obj_name[i];
-		}
+		} */
+		origin = BKDRHash(objtype_node->key->obj_name);
 		int answer = origin%policydb->obj_type_map_size;
 		//insert
 		if(policydb->obj_type_map->objtype_node[answer] == NULL){
@@ -318,9 +333,10 @@ uint32_t sub_dom_map_check(char *sub_name,struct policydb *policydb){
 		return 0;
 	uint32_t ret = 0;
 	int i = 0;
-	for(i = 0;i<strlen(sub_name);++i){
+	/* for(i = 0;i<strlen(sub_name);++i){
 		ret += sub_name[i];
-	}
+	} */
+	ret = BKDRHash(sub_name);
 	ret = ret%policydb->sub_dom_map_size;
 	return ret;
 }
@@ -330,9 +346,10 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 		return 0;
 	uint32_t ret = 0;
 	int i = 0;
-	for( i = 0;i<strlen(obj_name);++i){
+	/* for( i = 0;i<strlen(obj_name);++i){
 		ret += obj_name[i];
-	}
+	} */
+	ret = BKDRHash(obj_name);
 	ret = ret%policydb->otmap_policy_num;
 	return ret;
 }
@@ -344,9 +361,10 @@ int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, 
 		return 0;
 	int origin = 0;
 	int i = 0;
-		for(;i<strlen(source_name);++i){
+		/* for(;i<strlen(source_name);++i){
 			origin += source_name[i];
-		}
+		} */
+		origin = BKDRHash(source_name);
 	int answer = origin%policydb->wl_avtab_size;
 	printk("answer = %d\n",answer);
 	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];

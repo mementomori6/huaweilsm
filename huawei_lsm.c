@@ -17,6 +17,7 @@
 #include <linux/uaccess.h>//for get_fs
 #include <linux/limits.h>//for PATH_MAX 
 #include <linux/sched.h>
+#include <linux/signal.h>
 #include "security_sever.h"
 
 #define MAX_LENGTH 256
@@ -66,9 +67,7 @@ char controlledmessage[8192];
 #define CONNECT_AUTHORITY 2 //connect
 #define CREATE_AUTHORITY 4 //create
 #define SENDMSG_AUTHORITY 8//send_msg
-
-
-
+int hello = 0;
 //得到当前进程路径
 const char *get_current_process_full_path(void)
 {
@@ -80,15 +79,14 @@ const char *get_current_process_full_path(void)
 				char *p;
 				if (buf == NULL) return NULL;
 				memset(buf, 0, PAGE_SIZE);
-				//const struct *path = vma->vm_file->f_path;
-				p = d_path(&vma->vm_file->f_path, buf, PAGE_SIZE);
+				p = d_path(&vma->vm_file->f_path, buf, PAGE_SIZE); 
 				if (!IS_ERR(p)) {
 					memmove(buf, p, strlen(p) + 1);
 					//printk("%s \n",buf);
 					return (const char *) buf;
-				}
-				kfree(buf); return NULL;
-			}
+				} 
+				kfree(buf); return NULL; 
+			}  
 			vma = vma->vm_next;
 		}
 	}
@@ -440,10 +438,9 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 	get_fullpath(useDentry,full_path);
 	if(strlen(full_path) == 0)
 		return 0;
-	return 0;	
-	char *currentProcess = get_current_process_full_path();
-	
-	if(mask == MAY_EXEC){
+	if(inodeMode > 1023 && mask == MAY_EXEC){
+		char *currentProcess = get_current_process_full_path();
+		return 0;////////
 		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,EXEC_AUTHORITY,&policydb);
 		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
 		if(fileresult != -1)
@@ -458,7 +455,9 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 			return 1;
 		return 0;
 	}
-	if(mask == MAY_APPEND){
+	if(inodeMode > 1023 && mask == MAY_APPEND){
+		char *currentProcess = get_current_process_full_path();
+		return 0;////////
 		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,APPEND_AUTHORITY,&policydb);
 		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_APPEND_AUTHORITY,&policydb);
 		if(fileresult != -1)
