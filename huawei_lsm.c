@@ -376,6 +376,41 @@ static int huawei_lsm_inode_rmdir(struct inode *dir, struct dentry *dentry) {
 //database
 static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen) {
     
+	char *currentProcess = get_current_process_full_path();
+	struct sockaddr_un *address_un = (struct sockaddr_un *) address;
+	char *path_name = address_un->sun_path;
+	
+	struct sockaddr_in *address_in = (struct sockaddr_in *)address;
+	char *ip = inet_ntoa(address_in->sin_addr);
+	char *object = ip;
+	char *port = itoa(address_in-> sin_port);
+	strcat(object,port);
+	
+	int result = wl_avtab_check(currentProcess,path_name,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int result1 = wl_avtab_check(currentProcess,path_name,DB_CONTROL,LOCALHOST_AUTHORITY,&policydb);
+	if(result1 != -1)
+		return result1;
+	int result2 = wl_avtab_check(currentProcess,object,DB_CONTROL,DB_CONNECT_AUTHORITY,&policydb);
+	if(result2 != -1)
+		return result2;
+	result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(path_name,&policydb);
+	int target_type2 = obj_type_map_check(object,&policydb);
+	int source_type = sub_dom_map_check(currentProcess,&policydb);
+	result = te_avtab_check (source_type,target_type,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	if(result ==1)
+		return 1;
+	result = te_avtab_check (source_type,target_type2,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	result1 = te_avtab_check (source_type,target_type,DB_CONTROL,LOCALHOST_AUTHORITY,&policydb);
+	result2 = te_avtab_check (source_type2,target_type,DB_CONTROL,DB_CONNECT_AUTHORITY,&policydb);
+	if(result ==1 || result1 == 1 || result2 == 1)
+		return 1;
+	return 0;
 }
 
 //I/O device
@@ -407,9 +442,53 @@ static int huawei_lsm_inode_mknod (struct inode *dir, struct dentry *dentry,int 
 }
 
 //network conmunication control				
-static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, int size){}
-static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address, int addrlen){}	
-
+static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, int size){
+	if(sock->type != SOCK_DGRAM )
+		return 0;
+	char *currentProcess = get_current_process_full_path();
+	struct sockaddr_in *address_in = msg->msg_name;
+	char *ip = inet_ntoa(address_in->sin_addr);
+	char *object = ip;
+	char *port = itoa(address_in-> sin_port);
+	strcat(object,port);
+	int result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,SENDMSG_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(object,&policydb);
+	int source_type = sub_dom_map_check(currentProcess,&policydb);
+	result = te_avtab_check (source_type,target_type,NETWORK_CONTROL,SENDMSG_AUTHORITY,&policydb);
+	return result;
+}
+static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address, int addrlen){
+	char *object = (char)(sock->type + '0');
+	struct sockaddr_in *address_in = (struct sockaddr_in *)address;
+	char *ip = inet_ntoa( address_in->sin_addr);
+	char *port = itoa(address_in-> sin_port);
+	strcat(object,ip);
+	strcat(object,port);
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,BIND_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(object,&policydb);
+	int source_type = sub_dom_map_check(currentProcess,&policydb);
+	result = te_avtab_check (source_type,target_type,NETWORK_CONTROL,BIND_AUTHORITY,&policydb);
+	return result;
+}	
+static int huawei_lsm_socket_create (int family, int type, int protocol, int kern){
+	char familyChar = (char)(family+'0');
+	char typeChar = (char)(type+'0');
+	char protocolChar = (char)(protocol + '0');
+	char object[3] = {familyChar,typeChar,protocolChar};
+	char *currentProcess = get_current_process_full_path();
+	int result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,CREATE_AUTHORITY,&policydb);
+	if(result != -1)
+		return result;
+	int target_type = obj_type_map_check(object,&policydb);
+	int source_type = sub_dom_map_check(currentProcess,&policydb);
+	result = te_avtab_check (source_type,target_type,NETWORK_CONTROL,CREATE_AUTHORITY,&policydb);
+	return result;
+}
 
 //ddl,exec				
 static int huawei_lsm_inode_setattr	(struct dentry *dentry, struct iattr *attr){
