@@ -67,7 +67,9 @@ char controlledmessage[8192];
 #define CONNECT_AUTHORITY 2 //connect
 #define CREATE_AUTHORITY 4 //create
 #define SENDMSG_AUTHORITY 8//send_msg
-int hello = 0;
+struct net init_net = {  
+         .dev_base_head = LIST_HEAD_INIT(init_net.dev_base_head),  
+};
 //得到当前进程路径
 const char *get_current_process_full_path(void)
 {
@@ -554,17 +556,6 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 	return 0;
 }
 
-/* static int huawei_lsm_task_create(unsigned long clone_flags) {
-    char* currentProcessFullPath = get_current_process_full_path();
-
-    if(check(currentProcessFullPath, EXEC_AUTHORITY) != 0) {
-        printk("exec denied\n");
-        return -1;
-    }
-    else {
-        return 0;
-    }
-} */
 
 //初始化模块
  void initialize_subject_domainMapping(struct policydb *policydb)
@@ -671,6 +662,7 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 				readProcess++;
 			}
 			printk("obj_type = %d\n",obj_type);
+			
 			addNewObjtype_node(
 				insert_objtype_node(obj_name,obj_type),
 				&policydb
@@ -802,8 +794,9 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 				target_name[target_count++] = controlledmessage[readProcess];
 				++readProcess;
 			}
-			printk("target_name = %s\n",target_name);
+			//printk("target_name = %s\n",target_name);
 			target_name[target_count]='\0';
+			
 			++readProcess;
 			//读target_type（只有1位）
 			int target_type = 0;
@@ -818,12 +811,43 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 				permission = permission + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
-			printk("permission = %d\n",permission);	
-			printk("start insert wl\n");
-			addNewWl_avtb_node(
+			//printk("permission = %d\n",permission);	
+			//printk("start insert wl\n");
+			if(target_tpye == 2 && permission & 6 > 0 || target_type == 5 && permission & 11 > 0){
+				int socket_count = 0;
+				char net[MAX_LENGTH];
+			    net(source_name,0,MAX_LENGTH);
+				char port[MAX_LENGTH];
+			    port(source_name,0,MAX_LENGTH);
+				while(target_name[socket_count] != ' '){
+					net[socket_count] = target_name[socket_count];
+					++socket_count;
+				}
+				int port_count = 0;
+				while(target_name[socket_count] != '\0'){
+					port[port_count++] = target_name[socket_count];
+					++socket_count;
+				}
+				struct net_device *device_name = dev_get_by_name(&init_net,net);
+				struct in_device *device_in = (struct in_device)device_name->ip_ptr;
+				struct in_ifaddr *ifaddr =  device_in->ifa_list;
+				while(ifaddr != NULL){
+					char *ip = in_addr(ifaddr->ifa_local);
+					strcat(ip,port);
+					addNewWl_avtb_node(
+						insert_wl_avtab_node(source_name,ip,target_type,permission),
+						&policydb
+						);
+					ifaddr = ifaddr->ifa_next;
+				}
+			}
+			else{
+				addNewWl_avtb_node(
 				insert_wl_avtab_node(source_name,target_name,target_type,permission),
 				&policydb
-			);
+				);
+			}
+			
 		}
 		readProcess++;
 	}
@@ -896,6 +920,7 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 				readProcess++;
 			}
 			printk("permission = %d\n",permission);
+			
 			addNewTe_node(
 				insert_te_node(source_type,target_type,target_class,permission),
 				&policydb

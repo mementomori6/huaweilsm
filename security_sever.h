@@ -254,8 +254,9 @@ void free_wl_avtab_node_list(struct wl_avtab_node *wl_avtab_node){
 		//calculate hash
 		//printk("start to addNewWl_avtb_node\n");printk("wl_avtab_node= %s, %s, %d, %d\n",wl_avtab_node->key->source_name,wl_avtab_node->key->target_name,wl_avtab_node->key->target_class,wl_avtab_node->datum->permission);
 		int origin = 0;
-		int i = 0;
-/* 		for(i =0;i<strlen(wl_avtab_node->key->source_name);++i){
+		
+/*		int i = 0;
+ 		for(i =0;i<strlen(wl_avtab_node->key->source_name);++i){
 			origin += wl_avtab_node->key->source_name[i];
 		} */
 		origin = BKDRHash(wl_avtab_node->key->source_name);
@@ -338,7 +339,13 @@ uint32_t sub_dom_map_check(char *sub_name,struct policydb *policydb){
 	} */
 	ret = BKDRHash(sub_name);
 	ret = ret%policydb->sub_dom_map_size;
-	return ret;
+	struct sdmap_node* find = policydb->sub_dom_map->sdmap_node[ret];
+	while(find != NULL){
+		if(strcmp(sub_name,find->key->sub_name)==0)
+			return find->datum->sub_domain;
+		find = find->next;
+	}
+	return -1;
 }
 //客体-类型映射表
 uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
@@ -351,7 +358,13 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 	} */
 	ret = BKDRHash(obj_name);
 	ret = ret%policydb->otmap_policy_num;
-	return ret;
+	struct objtype_node * find = policydb->obj_type_map->objtype_node[ret];
+	while(find != NULL){
+		if(strcmp(obj_name,find->key->obj_name)==0)
+			return find->datum->obj_type;
+		find = find->next;
+	}
+	return -1;
 }
 //白名单查询(0允许，1禁止，-1未定义)
 
@@ -364,9 +377,9 @@ int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, 
 		/* for(;i<strlen(source_name);++i){
 			origin += source_name[i];
 		} */
-		origin = BKDRHash(source_name);
+	origin = BKDRHash(source_name);
 	int answer = origin%policydb->wl_avtab_size;
-	printk("answer = %d\n",answer);
+	//printk("answer = %d\n",answer);
 	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
 	while(find != NULL){
 		if(strcmp(source_name,find->key->source_name)==0 && strcmp(target_name,find->key->target_name)==0 && find->key->target_class == target_class){
@@ -384,6 +397,8 @@ int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, 
 //通用访问控制查询(1禁止，0允许)
 int te_avtab_check (int source_type, int target_type, uint32_t target_class, uint32_t request,struct policydb *policydb){
 	printk("te_avtab_check\n");
+	if(source_type == -1 || target_type == -1)
+		return 0;
 	int origin = source_type+target_type+target_class;
 	int answer = origin%policydb->te_policy_num;
 	printk("te_avtab_check answer = %d\n",answer);
