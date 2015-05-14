@@ -357,7 +357,7 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 		ret += obj_name[i];
 	} */
 	ret = BKDRHash(obj_name);
-	ret = ret%policydb->otmap_policy_num;
+	ret = ret%policydb->obj_type_map_size;
 	struct objtype_node * find = policydb->obj_type_map->objtype_node[ret];
 	while(find != NULL){
 		if(strcmp(obj_name,find->key->obj_name)==0)
@@ -369,7 +369,7 @@ uint32_t obj_type_map_check(char *obj_name,struct policydb *policydb){
 //白名单查询(0允许，1禁止，-1未定义)
 
 int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, uint32_t request,struct policydb *policydb){
-	printk("wl_avtab_check\n");
+	//printk("wl_avtab_check\n");
 	if(source_name == NULL || target_name == NULL || strlen(source_name) == 0 || strlen(target_name) == 0 )
 		return 0;
 	int origin = 0;
@@ -396,7 +396,7 @@ int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, 
 
 //通用访问控制查询(1禁止，0允许)
 int te_avtab_check (int source_type, int target_type, uint32_t target_class, uint32_t request,struct policydb *policydb){
-	printk("te_avtab_check\n");
+	//printk("te_avtab_check\n");
 	if(source_type == -1 || target_type == -1)
 		return 0;
 	int origin = source_type+target_type+target_class;
