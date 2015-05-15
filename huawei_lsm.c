@@ -22,7 +22,7 @@
 #include <linux/un.h>
 #include <linux/net.h>
 #include <linux/uaccess.h>
-#include "security_sever.h"
+#include "security_sever.c"
 
 #define SOCK_DGRAM 2
 #define MAX_LENGTH 256
@@ -228,11 +228,17 @@ static int huawei_lsm_file_permission(struct file *file, int mask) {
     char* currentProcessFullPath = get_current_process_full_path();
 	if(strcmp(currentProcessFullPath,"/sbin/syslog-ng") == 0 ||strcmp(currentProcessFullPath,"/bin/bash") == 0 || strcmp(currentProcessFullPath,"/bin/dmesg") == 0 
 		||strcmp(currentProcessFullPath,"/sbin/klogd") == 0 ||strcmp(currentProcessFullPath,"/usr/bin/gnome-terminal") == 0 
-		||strcmp(currentProcessFullPath,"/usr/bin/Xorg") == 0||strcmp(currentProcessFullPath,"/usr/lib/vmware-tools/sbin32/vmtoolsd") == 0||strcmp(currentProcessFullPath,"/usr/lib/hal/hald-addon-input") == 0 )
-		return 0;
+		||strcmp(currentProcessFullPath,"/usr/bin/Xorg") == 0||strcmp(currentProcessFullPath,"/usr/lib/vmware-tools/sbin32/vmtoolsd") == 0||strcmp(currentProcessFullPath,"/usr/lib/hal/hald-addon-input") == 0 
+		||strcmp(currentProcessFullPath,"/usr/bin/hal-get-property") == 0||strcmp(currentProcessFullPath,"/usr/sbin/hald") == 0||strcmp(currentProcessFullPath,"/usr/bin/gnome-session") == 0 
+		||strcmp(currentProcessFullPath,"/usr/bin/gnome-power-manager") == 0||strcmp(currentProcessFullPath,"/usr/bin/find") == 0||strcmp(currentProcessFullPath,"/bin/date") == 0 
+		||strcmp(currentProcessFullPath,"/usr/lib/gnome-main-menu/main-menu") == 0||strcmp(currentProcessFullPath,"/usr/bin/metacity") == 0||strcmp(currentProcessFullPath,"/usr/bin/hal-find-by-capability") == 0
+		||strcmp(currentProcessFullPath,"/usr/sbin/cron") == 0||strcmp(currentProcessFullPath,"/usr/bin/metacity") == 0	
+		||strcmp(currentProcessFullPath,"/usr/bin/sudo") == 0||strcmp(currentProcessFullPath,"/usr/lib/vmware-tools/bin32/appLoader") == 0||strcmp(currentProcessFullPath,"/usr/bin/nautilus") == 0
+		||strcmp(currentProcessFullPath,"/usr/bin/nautilus") == 0||strcmp(currentProcessFullPath,"/usr/sbin/irqbalance") == 0||strcmp(currentProcessFullPath,"/usr/bin/gnome-panel") == 0
+		||strcmp(currentProcessFullPath,"/usr/lib/gnome-settings-daemon/gnome-settings-daemon") == 0)
+		//return 0;
 	printk("currentProcessFullPath = %s\n",currentProcessFullPath);
 		return 0;
-
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
 	struct dentry *dentry = file->f_dentry;
@@ -1091,28 +1097,28 @@ static struct security_operations lsm_ops=
 {
 	//file control
 	.file_permission = huawei_lsm_file_permission, //file_append_execute_read_write_databaseConnect,
-	//.inode_link = huawei_lsm_inode_link, //file_link,
-	//.inode_symlink = huawei_lsm_inode_symlink,//file_symlink
-	//.inode_rename = huawei_lsm_inode_rename, //file_rename,
-	//.inode_unlink = huawei_lsm_inode_unlink, //file_inode_unlink,
-	//.inode_rmdir = huawei_lsm_inode_rmdir, //rmdir,
+	.inode_link = huawei_lsm_inode_link, //file_link,
+	.inode_symlink = huawei_lsm_inode_symlink,//file_symlink
+	.inode_rename = huawei_lsm_inode_rename, //file_rename,
+	.inode_unlink = huawei_lsm_inode_unlink, //file_inode_unlink,
+	.inode_rmdir = huawei_lsm_inode_rmdir, //rmdir,
 	
 	//database
-	//.socket_connect = huawei_lsm_socket_connect, //localhost_127001_socketConnect,
+	.socket_connect = huawei_lsm_socket_connect, //localhost_127001_socketConnect,
 	
 	//I/O device
-	//.sb_mount = huawei_lsm_sb_mount, //mount,
-	//.inode_mknod = huawei_lsm_inode_mknod, //mknod,
+	.sb_mount = huawei_lsm_sb_mount, //mount,
+	.inode_mknod = huawei_lsm_inode_mknod, //mknod,
 	
 	//network conmunication control
-	//.socket_sendmsg = huawei_lsm_socket_sendmsg, //socketAppend,
-	//.socket_bind = huawei_lsm_socket_bind, //bind_nameBind,
-	//.socket_create = huawei_lsm_socket_create, //network_create,
-	//.socket_connect = huawei_lsm_socket_connect, 
+	.socket_sendmsg = huawei_lsm_socket_sendmsg, //socketAppend,
+	.socket_bind = huawei_lsm_socket_bind, //bind_nameBind,
+	.socket_create = huawei_lsm_socket_create, //network_create,
+	.socket_connect = huawei_lsm_socket_connect, 
 
 	//ddl,exec
-	//.inode_setattr = huawei_lsm_inode_setattr,
-	//.inode_permission = huawei_lsm_inode_permission,
+	.inode_setattr = huawei_lsm_inode_setattr,
+	.inode_permission = huawei_lsm_inode_permission,
 };
 
 //读函数
