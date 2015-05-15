@@ -290,11 +290,12 @@ int te_avtab_check (int source_type, int target_type, uint32_t target_class, uin
 	//printk("te_avtab_check\n");
 	if(source_type == -1 || target_type == -1)
 		return 0;
+	printk("%d,%d,%d",source_type,target_type,target_class);
 	int origin = source_type+target_type+target_class;
-	int answer = origin%policydb->te_policy_num;
+	int answer = origin%policydb->te_avtab_size;
 	printk("te_avtab_check answer = %d\n",answer);
 	struct te_node *find = policydb->te_avtab->te_node[answer];
-	printk("check te_node\n");
+	//printk("check te_node\n");
 	while(find != NULL){
 		if(source_type == find->key->source_type && target_type == find->key->target_type && target_class == find->key->target_class){
 			int policy = (find->datum);

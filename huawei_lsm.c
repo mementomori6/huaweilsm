@@ -263,7 +263,7 @@ static int huawei_lsm_file_permission(struct file *file, int mask) {
 
 static int huawei_lsm_inode_link (struct dentry *old_dentry,struct inode *dir, struct dentry *new_dentry){
 	char full_path[MAX_LENGTH];
-	//printk("huawei_lsm_inode_link\n");
+	printk("huawei_lsm_inode_link\n");
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(new_dentry,full_path);
 	printk("full_path = %s\n",full_path);
@@ -289,12 +289,16 @@ static int huawei_lsm_inode_link (struct dentry *old_dentry,struct inode *dir, s
 }
 static int huawei_lsm_inode_symlink (struct inode *dir,struct dentry *dentry, const char *old_name){
 	char full_path[MAX_LENGTH];
-	//printk("huawei_lsm_inode_symlink\n");
+	printk("huawei_lsm_inode_symlink\n");
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(dentry,full_path);
+	printk("full_path = %s\n",full_path);
 	char *currentProcess = get_current_process_full_path();
+	printk("currentProcess = %s\n",currentProcess);
 	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,LINK_AUTHORITY,&policydb);
+	printk("result = %d\n",result);
 	int resultddl = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_LINK_AUTHORITY,&policydb);
+	printk("resultddl = %d\n",resultddl);
 	if(result != -1)
 		return result;
 	if(resultddl != -1)
@@ -308,11 +312,11 @@ static int huawei_lsm_inode_symlink (struct inode *dir,struct dentry *dentry, co
 	return 0;
 }
 static int huawei_lsm_inode_rename (struct inode *old_dir, struct dentry *old_dentry,struct inode *new_dir, struct dentry *new_dentry){
-	//printk("huawei_lsm_inode_rename\n");
+	printk("huawei_lsm_inode_rename\n");
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(old_dentry,full_path);
-	//printk("full_path = %s\n",full_path);
+	printk("full_path = %s\n",full_path);
 	char old_parent_full_path[MAX_LENGTH];
 	//struct dentry *useDentry = d_find_alias(old_dir);
 	memset(old_parent_full_path,0,MAX_LENGTH);
@@ -325,40 +329,41 @@ static int huawei_lsm_inode_rename (struct inode *old_dir, struct dentry *old_de
 	get_parentpath(new_dentry,new_parent_full_path);
 	//printk("new_parent_full_path = %s\n",new_parent_full_path);
 	char *currentProcess = get_current_process_full_path();
-	//printk("currentProcess = %s\n",currentProcess);
+	printk("currentProcess = %s\n",currentProcess);
 	int result = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,RENAME_AUTHORITY,&policydb);
-	//printk("result = %d\n",result);
+	printk("result = %d\n",result);
 	int resultddl = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_RENAME_AUTHORITY,&policydb);
 	int resultRE = 0;
-	return 0;
-	//printk("resultddl = %d\n",resultddl);
-	if(strcmp(old_parent_full_path,new_parent_full_path)!=0){
+	printk("resultddl = %d\n",resultddl);
+/* 	if(strcmp(old_parent_full_path,new_parent_full_path)!=0){
 		resultRE = wl_avtab_check(currentProcess,full_path,DIR_CONTROL,REPARENT_AUTHORITY,&policydb);
 		if(resultRE == 1)
 			return resultRE;
-	}
-	//printk("resultRE = %d\n",resultRE);
+	} */
+	printk("resultRE = %d\n",resultRE);
 	if(result != -1)
 		return result;
 	if(resultddl != -1)
 		return resultddl;
 	int target_type = obj_type_map_check(full_path,&policydb);
+	printk("target_type = %d\n",target_type);
 	int source_type = sub_dom_map_check(currentProcess,&policydb);
+	printk("source_type = %d\n",source_type);
 	result = te_avtab_check (source_type,target_type,FILE_CONTROL,RENAME_AUTHORITY,&policydb);
 	printk("result = %d\n",result);
 	resultddl = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_RENAME_AUTHORITY,&policydb);
 	printk("resultddl = %d\n",resultddl);
-	if(strcmp(old_parent_full_path,new_parent_full_path)!=0){
+/* 	if(strcmp(old_parent_full_path,new_parent_full_path)!=0){
 		resultRE = te_avtab_check (source_type,target_type,DIR_CONTROL,REPARENT_AUTHORITY,&policydb);
 		if(resultRE == 1)
 			return resultRE;
-	}
+	} */
 	if(result == 1 || resultddl == 1)
 		return 1;
 	return 0;
 }
 static int huawei_lsm_inode_unlink(struct inode *dir, struct dentry *dentry) {
-    //printk("huawei_lsm_inode_unlink\n");
+    printk("huawei_lsm_inode_unlink\n");
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(dentry,full_path);
@@ -1096,29 +1101,29 @@ void initialpolicydb(void){
 static struct security_operations lsm_ops=
 {
 	//file control
-	.file_permission = huawei_lsm_file_permission, //file_append_execute_read_write_databaseConnect,
+	//.file_permission = huawei_lsm_file_permission, //file_append_execute_read_write_databaseConnect,
 	.inode_link = huawei_lsm_inode_link, //file_link,
-	.inode_symlink = huawei_lsm_inode_symlink,//file_symlink
+	//.inode_symlink = huawei_lsm_inode_symlink,//file_symlink
 	.inode_rename = huawei_lsm_inode_rename, //file_rename,
 	.inode_unlink = huawei_lsm_inode_unlink, //file_inode_unlink,
 	.inode_rmdir = huawei_lsm_inode_rmdir, //rmdir,
 	
 	//database
-	.socket_connect = huawei_lsm_socket_connect, //localhost_127001_socketConnect,
+	//.socket_connect = huawei_lsm_socket_connect, //localhost_127001_socketConnect,
 	
 	//I/O device
-	.sb_mount = huawei_lsm_sb_mount, //mount,
-	.inode_mknod = huawei_lsm_inode_mknod, //mknod,
+	//.sb_mount = huawei_lsm_sb_mount, //mount,
+	//.inode_mknod = huawei_lsm_inode_mknod, //mknod,
 	
 	//network conmunication control
-	.socket_sendmsg = huawei_lsm_socket_sendmsg, //socketAppend,
-	.socket_bind = huawei_lsm_socket_bind, //bind_nameBind,
-	.socket_create = huawei_lsm_socket_create, //network_create,
-	.socket_connect = huawei_lsm_socket_connect, 
+	//.socket_sendmsg = huawei_lsm_socket_sendmsg, //socketAppend,
+	//.socket_bind = huawei_lsm_socket_bind, //bind_nameBind,
+	//.socket_create = huawei_lsm_socket_create, //network_create,
+	//.socket_connect = huawei_lsm_socket_connect, 
 
 	//ddl,exec
-	.inode_setattr = huawei_lsm_inode_setattr,
-	.inode_permission = huawei_lsm_inode_permission,
+	//.inode_setattr = huawei_lsm_inode_setattr,
+	//.inode_permission = huawei_lsm_inode_permission,
 };
 
 //读函数
@@ -1162,8 +1167,8 @@ static int __init lsm_init(void)
 	write_whiteList(1,wl,strlen(wl));
 	char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n";
 	write_accessControlMatrix(1,ac,strlen(ac));
-	char *ob = "#obj_name0#log_t#1\n#obj_name1#config_t#0\n";
-	char *su = "#sub_name0#admin_t#0\n#sub_name1#config_t#1\n#sub_name2#admin_t#0\n";
+	char *ob = "#obj_name0#log_t#1\n#obj_name1#config_t#0\n#/home/yxtian/Desktop/new file#log_t#2\n";
+	char *su = "#sub_name0#admin_t#0\n#sub_name1#config_t#1\n#sub_name2#admin_t#0\n#/usr/bin/nautilus#admin_h#3\n";
 	write_object_typeMapping(1,ob,strlen(ob));
 	write_subject_domainMapping(1,su,strlen(su));
 	ret_accessControlMatrix = register_chrdev(126, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
