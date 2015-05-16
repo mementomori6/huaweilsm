@@ -41,7 +41,7 @@ struct te_avtab{
 };
 struct te_node{
 	struct te_avtab_key *key;
-	struct te_atab_datum *datum;
+	struct te_avtab_datum *datum;
 	struct te_node *next;
 };
 struct te_avtab_key{

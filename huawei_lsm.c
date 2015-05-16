@@ -78,21 +78,35 @@ char controlledmessage[8192];
 //得到当前进程路径
 const char *get_current_process_full_path(void)
 {
+	if (!current)
+			return NULL;
+	
+	//char *buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	//if (buf == NULL) return NULL;
+	//memset(buf, 0, PAGE_SIZE);
+	
 	if (current->mm) {
+		
 		struct vm_area_struct *vma = current->mm->mmap;
 		while (vma) {
 			if ((vma->vm_flags & VM_EXECUTABLE) && vma->vm_file) {
 				char *buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
 				char *p;
-				if (buf == NULL) return NULL;
+				if (!buf) {
+					kfree(buf);
+					return NULL;
+				}
 				memset(buf, 0, PAGE_SIZE);
 				p = d_path(&vma->vm_file->f_path, buf, PAGE_SIZE); 
-				if (!IS_ERR(p)) {
+				/* printk("p = %s\n",p);
+				return NULL; */
+				if (p != NULL) {
 					memmove(buf, p, strlen(p) + 1);
 					//printk("%s \n",buf);
 					return (const char *) buf;
 				} 
-				kfree(buf); return NULL; 
+				kfree(buf); 
+				return NULL; 
 			}  
 			vma = vma->vm_next;
 		}
@@ -215,6 +229,8 @@ static int get_parentpath(struct dentry *dentry, char *full_path)
 //file control
 static int huawei_lsm_file_permission(struct file *file, int mask) {
 	//printk("huawei_lsm_file_permission\n");
+	if(file == NULL || file->f_path.dentry == NULL||file->f_path.dentry->d_inode == NULL)
+		return 0;
 	int operation = 0;
 	if(mask == MAY_WRITE){
 		operation = WRITE_AUTHORITY;
@@ -225,7 +241,14 @@ static int huawei_lsm_file_permission(struct file *file, int mask) {
 			return 0;
 		}
 	}
+	
     char* currentProcessFullPath = get_current_process_full_path();
+	int source_type = sub_dom_map_check(currentProcessFullPath,&policydb);
+	int check_wl_subName = wl_name_check(currentProcessFullPath,&policydb);
+	if(source_type == -1 && check_wl_subName == -1){
+		kfree(currentProcessFullPath);	
+		return 0;
+	}
 	if(strcmp(currentProcessFullPath,"/sbin/syslog-ng") == 0 ||strcmp(currentProcessFullPath,"/bin/bash") == 0 || strcmp(currentProcessFullPath,"/bin/dmesg") == 0 
 		||strcmp(currentProcessFullPath,"/sbin/klogd") == 0 ||strcmp(currentProcessFullPath,"/usr/bin/gnome-terminal") == 0 
 		||strcmp(currentProcessFullPath,"/usr/bin/Xorg") == 0||strcmp(currentProcessFullPath,"/usr/lib/vmware-tools/sbin32/vmtoolsd") == 0||strcmp(currentProcessFullPath,"/usr/lib/hal/hald-addon-input") == 0 
@@ -235,27 +258,54 @@ static int huawei_lsm_file_permission(struct file *file, int mask) {
 		||strcmp(currentProcessFullPath,"/usr/sbin/cron") == 0||strcmp(currentProcessFullPath,"/usr/bin/metacity") == 0	
 		||strcmp(currentProcessFullPath,"/usr/bin/sudo") == 0||strcmp(currentProcessFullPath,"/usr/lib/vmware-tools/bin32/appLoader") == 0||strcmp(currentProcessFullPath,"/usr/bin/nautilus") == 0
 		||strcmp(currentProcessFullPath,"/usr/bin/nautilus") == 0||strcmp(currentProcessFullPath,"/usr/sbin/irqbalance") == 0||strcmp(currentProcessFullPath,"/usr/bin/gnome-panel") == 0
-		||strcmp(currentProcessFullPath,"/usr/lib/gnome-settings-daemon/gnome-settings-daemon") == 0)
-		//return 0;
+		||strcmp(currentProcessFullPath,"/usr/lib/gnome-settings-daemon/gnome-settings-daemon") == 0) 
+		{
+			kfree(currentProcessFullPath);	
+			return 0;
+		}
+
+		
+/* 	 if (strcmp(currentProcessFullPath, "/bin/bash") == 0) {
+		printk("currentProcessFullPath = %s\n",currentProcessFullPath);
+	} */
 	printk("currentProcessFullPath = %s\n",currentProcessFullPath);
+	/*else {
+		kfree(currentProcessFullPath);
 		return 0;
+	} */
+	//printk("currentProcessFullPath = %s\n",currentProcessFullPath);
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
-	struct dentry *dentry = file->f_dentry;
+	/* struct dentry *dentry = file->f_path.dentry;
 	get_fullpath(dentry,full_path);
-	if(strlen(full_path) < 20)
+	if(strlen(full_path) == 0) {
+		kfree(currentProcessFullPath);
 		return 0;
-	//printk("full_path = %s",full_path);
+	} */
+	struct inode *inode = file->f_path.dentry->d_inode;
+	struct dentry *useDentry = d_find_alias(inode);
+	get_fullpath(useDentry,full_path);
+	if(strlen(full_path) == 0){
+		kfree(currentProcessFullPath);	
+		return 0;
+	}
+
+	printk("full_path = %s\n",full_path);
 	int result = wl_avtab_check(currentProcessFullPath,full_path,FILE_CONTROL,operation,&policydb);
 	int resultddl = wl_avtab_check(currentProcessFullPath,full_path,DDL_CONTROL,operation,&policydb);
-	if(result != -1)
+	printk("result = %d, resultddl = %d\n",result,resultddl);
+	if(result != -1) {
+		kfree(currentProcessFullPath);
 		return result;
-	if(resultddl != -1)
+	}
+	if(resultddl != -1) {
+		kfree(currentProcessFullPath);
 		return resultddl;
+	}
 	int target_type = obj_type_map_check(full_path,&policydb);
-	int source_type = sub_dom_map_check(currentProcessFullPath,&policydb);
 	result = te_avtab_check(source_type,target_type,FILE_CONTROL,operation,&policydb);
 	resultddl = te_avtab_check(source_type,target_type,DDL_CONTROL,operation,&policydb);
+	kfree(currentProcessFullPath);
 	if(result ==1 || resultddl == 1)
 		return 1;
 	return 0;
@@ -401,40 +451,59 @@ static int huawei_lsm_inode_rmdir(struct inode *dir, struct dentry *dentry) {
 }
 char *inet_ntoa(struct in_addr ina)
 {
-    static char buf[4*sizeof "123"];
+    static char buf[4*sizeof "123" + 1];
+	int ini = 0;
+	for(;ini<sizeof(buf);++ini){
+		buf[ini] = '\0';
+	}
     unsigned char *ucp = (unsigned char *)&ina;
     sprintf(buf, "%d.%d.%d.%d",
               ucp[0] & 0xff,
               ucp[1] & 0xff,
               ucp[2] & 0xff,
               ucp[3] & 0xff);
+			  
       return buf;
 }
 //database
 static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen) {
-   // printk("huawei_lsm_socket_connect\n");
+    printk("huawei_lsm_socket_connect\n");
 	char *currentProcess = get_current_process_full_path();
 	struct sockaddr_un *address_un = (struct sockaddr_un *) address;
 	char *path_name =(char *) address_un->sun_path;
-	//printk("path_name = %s \n",path_name);
+	printk("path_name = %s \n",path_name);
 	struct sockaddr_in *address_in = (struct sockaddr_in *)address;
+
 	char *ip = inet_ntoa(address_in->sin_addr);
-	char *object = ip;
+	
+	//char test[2] = {(char)(sock->type + '0'),'\0'};
+	char *object[30];
+	object[0] = (char)(sock->type + '0');
+	printk("object = %s\n",object);
+	strcat(object," ");
+	strcat(object,ip);
+	printk("object = %s\n",object);
+
 	char* port = (char *)vmalloc(sizeof(int) + 1);  //分配动态内存
 	memset(port, 0, sizeof(int) + 1);              //内存块初始化
-	//sprintf(port, "%d", address_in-> sin_port);                  //整数转化为字符串
+	sprintf(port, "%d", address_in-> sin_port);                  //整数转化为字符串
 	
 	//char *port = snprintf(address_in-> sin_port);
+	strcat(object," ");
 	strcat(object,port);
+	printk("object = %s\n",object);
 	vfree(port);                                    //释放动态分配的内存
-	//printk("object = %s\n",object);
+	
 	int result = wl_avtab_check(currentProcess,path_name,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	//printk("result = %d\n",result);
 	if(result != -1)
 		return result;
 	int result1 = wl_avtab_check(currentProcess,path_name,DB_CONTROL,LOCALHOST_AUTHORITY,&policydb);
+	printk("result1 = %d\n",result);
 	if(result1 != -1)
 		return result1;
 	int result2 = wl_avtab_check(currentProcess,object,DB_CONTROL,DB_CONNECT_AUTHORITY,&policydb);
+	printk("result2 = %d\n",result);
 	if(result2 != -1)
 		return result2;
 	result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
@@ -445,11 +514,15 @@ static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *addre
 	int target_type2 = obj_type_map_check(object,&policydb);
 	int source_type = sub_dom_map_check(currentProcess,&policydb);
 	result = te_avtab_check (source_type,target_type,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	//printk("result = %d\n",result);
 	if(result ==1)
 		return 1;
 	result = te_avtab_check (source_type,target_type2,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
+	//printk("result = %d\n",result);
 	result1 = te_avtab_check (source_type,target_type,DB_CONTROL,LOCALHOST_AUTHORITY,&policydb);
+	//printk("result1 = %d\n",result);
 	result2 = te_avtab_check (source_type,target_type2,DB_CONTROL,DB_CONNECT_AUTHORITY,&policydb);
+	//printk("result2 = %d\n",result);
 	if(result ==1 || result1 == 1 || result2 == 1)
 		return 1;
 	return 0;
@@ -488,8 +561,8 @@ static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, in
 	 if(msg->msg_namelen ==0 )
 		return 0;  
 	//printk("type = %d\n",sock->type);
- 	/* if(sock->type != SOCK_DGRAM && sock->type != 1)
-		return 0;   */
+ 	if(sock->type != SOCK_DGRAM)
+		return 0; 
 /*  	struct cmsghdr *cmsg ;
 	cmsg = CMSG_FIRSTHDR(msg);
 	for ( // 遍历所有的控制头（the control headers）
@@ -514,22 +587,24 @@ static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, in
         printk("ipi_addr=%s\n", inet_ntoa(pi->ipi_addr));
 	}
   */
-	//printk("huawei_lsm_socket_sendmsg\n");
+	printk("huawei_lsm_socket_sendmsg\n");
 	char *currentProcess = get_current_process_full_path();
-	//printk("currentProcess = %s\n",currentProcess);
+	printk("currentProcess = %s\n",currentProcess);
 	struct sockaddr_in *address_in = msg->msg_name;
 	int msgLen = msg->msg_namelen;
-	//printk("msgLen = %d\n",msgLen);
+	printk("msgLen = %d\n",msgLen);
 	char *ip = inet_ntoa(address_in->sin_addr);
 
-	char *object = ip;
+	char *object ="2 ";
+	strcat(object,ip);
 	//char *port = itoa(address_in-> sin_port);
 	char* port = (char *)vmalloc(sizeof(int) + 1);  //分配动态内存
 	memset(port, 0, sizeof(int) + 1);              //内存块初始化
 	sprintf(port, "%d", address_in-> sin_port);                  //整数转化为字符串
+	strcat(object," ");
 	strcat(object,port);
 	vfree(port);                                    //释放动态分配的内存
-	//printk("object = %s \n",object);
+	printk("object = %s \n",object);
 	int result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,SENDMSG_AUTHORITY,&policydb);
 	if(result != -1)
 		return result;
@@ -539,8 +614,9 @@ static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, in
 	return result;
 }
 static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address, int addrlen){
-	//printk("huawei_lsm_socket_bind");
-	char *object = (char)(sock->type + '0');
+	printk("huawei_lsm_socket_bind");
+	char test[2] = {(char)(sock->type + '0'),'\0'};
+	char *object = test;
 	struct sockaddr_in *address_in = (struct sockaddr_in *)address;
 	char *ip = inet_ntoa( address_in->sin_addr);
 	//char *port = itoa(address_in-> sin_port);
@@ -549,8 +625,10 @@ static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address,
 	sprintf(port, "%d", address_in-> sin_port);                  //整数转化为字符串
 	
 	strcat(object,ip);
+	strcat(object," ");
 	strcat(object,port);
 	vfree(port);                                    //释放动态分配的内存
+	printk("object = %s\n",object);
 	char *currentProcess = get_current_process_full_path();
 	int result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,BIND_AUTHORITY,&policydb);
 	if(result != -1)
@@ -561,7 +639,7 @@ static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address,
 	return result;
 }	
 static int huawei_lsm_socket_create (int family, int type, int protocol, int kern){
-	//printk("huawei_lsm_socket_create\n");
+	printk("huawei_lsm_socket_create\n");
 	char familyChar0 = (char)(family%10+'0');
 	char familyChar1 = (char)(family/10+'0');
 	//printk("family = %d\n",family);
@@ -598,36 +676,61 @@ static int huawei_lsm_inode_setattr	(struct dentry *dentry, struct iattr *attr){
 }				
 				
 static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
-    if(mask == MAY_READ || mask == MAY_WRITE || mask != MAY_EXEC && mask != MAY_APPEND)
+    //if(mask != MAY_EXEC && mask != MAY_APPEND)
+	//	return 0; 
+	//int check_mask = mask & (MAY_READ|MAY_WRITE|MAY_EXEC|MAY_APPEND);
+	int check_mask = mask & (MAY_EXEC);
+	if(!check_mask)
+		return 0;
+	if(S_ISDIR(inode->i_mode))
 		return 0;
 	int inodeMode = inode->i_mode & 4095;
-	//printk("huawei_lsm_inode_permission %d\n",inodeMode);
+	
 	char full_path[MAX_LENGTH];
 	struct dentry *useDentry = d_find_alias(inode);
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(useDentry,full_path);
 	if(strlen(full_path) == 0)
 		return 0;
-	if(inodeMode > 1023 && mask == MAY_EXEC){
+	if(strcmp(full_path,"/home/yxtian/Desktop/huawei/lsmtest/wl")==0){
+		printk("path = %s\n",full_path);
+		printk("huawei_lsm_inode_permission %o\n",inodeMode);
+	}
+	if(true) { //* inodeMode > 1023 &&  */mask == MAY_EXEC){
 		char *currentProcess = get_current_process_full_path();
+		printk("currentProcess = %s\n", currentProcess);
+		printk("path = %s\n",full_path);
+		printk("process %s  mask = %d\n",currentProcess,mask);
+
 		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,EXEC_AUTHORITY,&policydb);
 		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
-		if(fileresult != -1)
+		printk("result %d %d \n",ddlresult,fileresult);
+		if(fileresult != -1){
+			kfree(currentProcess);
 			return fileresult;
-		if(ddlresult != -1)
+		}
+			
+		if(ddlresult != -1){
+			kfree(currentProcess);
 			return ddlresult;
+		}
 		int target_type = obj_type_map_check(full_path,&policydb);
 		int source_type = sub_dom_map_check(currentProcess,&policydb);
 		ddlresult = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
 		fileresult = te_avtab_check (source_type,target_type,FILE_CONTROL,EXEC_AUTHORITY,&policydb);
+		printk("result %d %d \n",ddlresult,fileresult);
+		kfree(currentProcess);
 		if(fileresult == 1 || ddlresult == 1)
 			return 1;
 		return 0;
 	}
 	if(inodeMode > 1023 && mask == MAY_APPEND){
-		char *currentProcess = get_current_process_full_path();
+		char *currentProcess = get_current_process_full_path(); 
+		printk("process %s  mask = %d\n",currentProcess,mask);
+
 		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,APPEND_AUTHORITY,&policydb);
 		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_APPEND_AUTHORITY,&policydb);
+		printk("result %d %d \n",ddlresult,fileresult);
 		if(fileresult != -1)
 			return fileresult;
 		if(ddlresult != -1)
@@ -636,6 +739,7 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 		int source_type = sub_dom_map_check(currentProcess,&policydb);
 		ddlresult = te_avtab_check (source_type,target_type,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
 		fileresult = te_avtab_check (source_type,target_type,FILE_CONTROL,DDL_APPEND_AUTHORITY,&policydb);
+		printk("result %d %d \n",ddlresult,fileresult);
 		if(fileresult == 1 || ddlresult == 1)
 			return 1;
 		return 0;
@@ -1101,12 +1205,12 @@ void initialpolicydb(void){
 static struct security_operations lsm_ops=
 {
 	//file control
-	//.file_permission = huawei_lsm_file_permission, //file_append_execute_read_write_databaseConnect,
-	.inode_link = huawei_lsm_inode_link, //file_link,
+	.file_permission = huawei_lsm_file_permission, //file_append_execute_read_write_databaseConnect,
+	//.inode_link = huawei_lsm_inode_link, //file_link,
 	//.inode_symlink = huawei_lsm_inode_symlink,//file_symlink
-	.inode_rename = huawei_lsm_inode_rename, //file_rename,
-	.inode_unlink = huawei_lsm_inode_unlink, //file_inode_unlink,
-	.inode_rmdir = huawei_lsm_inode_rmdir, //rmdir,
+	//.inode_rename = huawei_lsm_inode_rename, //file_rename,
+	//.inode_unlink = huawei_lsm_inode_unlink, //file_inode_unlink,
+	//.inode_rmdir = huawei_lsm_inode_rmdir, //rmdir,
 	
 	//database
 	//.socket_connect = huawei_lsm_socket_connect, //localhost_127001_socketConnect,
@@ -1165,7 +1269,7 @@ static int __init lsm_init(void)
 	ret_whiteList = register_chrdev(125, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
 	char* wl = readRules("/home/yxtian/Desktop/huawei/lsmtest/wl");//"#source_name0#target_name0#3#00000010\n#source_name1#target_name1#5#00000100\n";
 	write_whiteList(1,wl,strlen(wl));
-	char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n";
+	char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n#domain#3#target#2#0#00010000\n";
 	write_accessControlMatrix(1,ac,strlen(ac));
 	char *ob = "#obj_name0#log_t#1\n#obj_name1#config_t#0\n#/home/yxtian/Desktop/new file#log_t#2\n";
 	char *su = "#sub_name0#admin_t#0\n#sub_name1#config_t#1\n#sub_name2#admin_t#0\n#/usr/bin/nautilus#admin_h#3\n";

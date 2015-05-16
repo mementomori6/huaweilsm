@@ -274,10 +274,29 @@ int wl_avtab_check(char* source_name, char* target_name, uint32_t target_class, 
 	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
 	while(find != NULL){
 		if(strcmp(source_name,find->key->source_name)==0 && strcmp(target_name,find->key->target_name)==0 && find->key->target_class == target_class){
-			int policy = (find->datum);
+			int policy = (find->datum->permission);
 			policy = policy&request;
 			if(policy == 0)
 				return 1;
+			return 0;
+		}
+		find = find->next;
+	}
+	return -1;
+}
+//检查白名单主体名
+int wl_name_check(char* source_name, struct policydb *policydb){
+	//printk("wl_avtab_check\n");
+	if(source_name == NULL || strlen(source_name) == 0 )
+		return -1;
+	int origin = 0;
+	int i = 0;
+	origin = BKDRHash(source_name);
+	int answer = origin%policydb->wl_avtab_size;
+	//printk("answer = %d\n",answer);
+	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
+	while(find != NULL){
+		if(strcmp(source_name,find->key->source_name)==0){
 			return 0;
 		}
 		find = find->next;
@@ -298,7 +317,7 @@ int te_avtab_check (int source_type, int target_type, uint32_t target_class, uin
 	//printk("check te_node\n");
 	while(find != NULL){
 		if(source_type == find->key->source_type && target_type == find->key->target_type && target_class == find->key->target_class){
-			int policy = (find->datum);
+			int policy = (find->datum->permission);
 			policy = policy&request;
 			if(policy == 0)
 				return 1;
