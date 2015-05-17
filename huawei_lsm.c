@@ -182,49 +182,7 @@ static int get_parentpath(struct dentry *dentry, char *full_path)
 	strcpy(full_path,local_path);
 	return 0;
 }
-//重载钩子点函数
-/* int check(char* currentProcessFullPath, int authority) {
-    if (enable_flag == 0) {
-        return 0;
-    }
-    else if(currentProcessFullPath == NULL) {
-        //printk("currentProcessFullPath is null\n");
-        return 0;
-    }
-    int i;
-    for (i = 0; i < ruleNumber; ++i) {
-        if(strncmp(controlledRules[i], currentProcessFullPath, strlen(currentProcessFullPath)) == 0) {
-            //切割字符串
-            char r_authoriy[MAX_LENGTH];
-            char* endptr;
-            char r_path[MAX_LENGTH];
-            strcpy(r_authoriy, controlledRules[i]);
-            char* const delim = " "; 
-            char *token, *cur = r_authoriy;
-            int j = 0;
-            while (token = strsep(&cur, delim)) {  
-                if(j == 0) {
-                    strcpy(r_path, token);
-                }
-                else if(j == 1) {
-                    strcpy(r_authoriy, token);
-                }
-                j++;
-            }
 
-            
-            unsigned long r_authoriy_unsigned_long = simple_strtol(r_authoriy, &endptr, 10);
-
-            if((r_authoriy_unsigned_long & authority) == 0) {
-                return 1;
-            }
-            else {
-                return 0;
-            }
-        }
-    }
-    return 0;
-} */
 
 //file control
 static int huawei_lsm_file_permission(struct file *file, int mask) {
@@ -315,7 +273,7 @@ static int huawei_lsm_inode_link (struct dentry *old_dentry,struct inode *dir, s
 	char full_path[MAX_LENGTH];
 	printk("huawei_lsm_inode_link\n");
 	memset(full_path,0,MAX_LENGTH);
-	get_fullpath(new_dentry,full_path);
+	get_fullpath(old_dentry,full_path);
 	printk("full_path = %s\n",full_path);
 	char *currentProcess = get_current_process_full_path();
 	printk("currentProcess = %s\n",currentProcess);
@@ -341,7 +299,11 @@ static int huawei_lsm_inode_symlink (struct inode *dir,struct dentry *dentry, co
 	char full_path[MAX_LENGTH];
 	printk("huawei_lsm_inode_symlink\n");
 	memset(full_path,0,MAX_LENGTH);
-	get_fullpath(dentry,full_path);
+	struct dentry *useDentry = d_find_alias(dir);
+	get_fullpath(useDentry,full_path);
+	strcat(full_path,"/");
+	strcat(full_path,old_name);
+	//get_fullpath(dentry,full_path);
 	printk("full_path = %s\n",full_path);
 	char *currentProcess = get_current_process_full_path();
 	printk("currentProcess = %s\n",currentProcess);
@@ -436,14 +398,19 @@ static int huawei_lsm_inode_unlink(struct inode *dir, struct dentry *dentry) {
 }
 
 static int huawei_lsm_inode_rmdir(struct inode *dir, struct dentry *dentry) {
-	//printk("huawei_lsm_inode_rmdir\n");
+	printk("huawei_lsm_inode_rmdir\n");
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(dentry,full_path);
 	char *currentProcess = get_current_process_full_path();
+	printk("current process full path: %s\n", currentProcess);
+	printk("full path %s\n", full_path);
 	int result = wl_avtab_check(currentProcess,full_path,DIR_CONTROL,RMDIR_AUTHORITY,&policydb);
-	if(result != -1)
+	printk("result = %d\n", result);
+	if(result != -1) {
+		kfree(currentProcess);
 		return result;
+	}
 	int target_type = obj_type_map_check(full_path,&policydb);
 	int source_type = sub_dom_map_check(currentProcess,&policydb);
 	result = te_avtab_check (source_type,target_type,DIR_CONTROL,RMDIR_AUTHORITY,&policydb);
@@ -471,7 +438,7 @@ static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *addre
 	char *currentProcess = get_current_process_full_path();
 	struct sockaddr_un *address_un = (struct sockaddr_un *) address;
 	char *path_name =(char *) address_un->sun_path;
-	printk("path_name = %s \n",path_name);
+	//printk("path_name = %s \n",path_name);
 	struct sockaddr_in *address_in = (struct sockaddr_in *)address;
 
 	char *ip = inet_ntoa(address_in->sin_addr);
@@ -479,10 +446,10 @@ static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *addre
 	//char test[2] = {(char)(sock->type + '0'),'\0'};
 	char *object[30];
 	object[0] = (char)(sock->type + '0');
-	printk("object = %s\n",object);
+	//printk("object = %s\n",object);
 	strcat(object," ");
 	strcat(object,ip);
-	printk("object = %s\n",object);
+	//printk("object = %s\n",object);
 
 	char* port = (char *)vmalloc(sizeof(int) + 1);  //分配动态内存
 	memset(port, 0, sizeof(int) + 1);              //内存块初始化
@@ -491,7 +458,7 @@ static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *addre
 	//char *port = snprintf(address_in-> sin_port);
 	strcat(object," ");
 	strcat(object,port);
-	printk("object = %s\n",object);
+	//printk("object = %s\n",object);
 	vfree(port);                                    //释放动态分配的内存
 	
 	int result = wl_avtab_check(currentProcess,path_name,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
@@ -499,11 +466,11 @@ static int huawei_lsm_socket_connect(struct socket *sock, struct sockaddr *addre
 	if(result != -1)
 		return result;
 	int result1 = wl_avtab_check(currentProcess,path_name,DB_CONTROL,LOCALHOST_AUTHORITY,&policydb);
-	printk("result1 = %d\n",result);
+	//printk("result1 = %d\n",result);
 	if(result1 != -1)
 		return result1;
 	int result2 = wl_avtab_check(currentProcess,object,DB_CONTROL,DB_CONNECT_AUTHORITY,&policydb);
-	printk("result2 = %d\n",result);
+	//printk("result2 = %d\n",result);
 	if(result2 != -1)
 		return result2;
 	result = wl_avtab_check(currentProcess,object,NETWORK_CONTROL,CONNECT_AUTHORITY,&policydb);
@@ -589,10 +556,10 @@ static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, in
   */
 	printk("huawei_lsm_socket_sendmsg\n");
 	char *currentProcess = get_current_process_full_path();
-	printk("currentProcess = %s\n",currentProcess);
+	//printk("currentProcess = %s\n",currentProcess);
 	struct sockaddr_in *address_in = msg->msg_name;
 	int msgLen = msg->msg_namelen;
-	printk("msgLen = %d\n",msgLen);
+	//printk("msgLen = %d\n",msgLen);
 	char *ip = inet_ntoa(address_in->sin_addr);
 
 	char object[30] ={'2',' '};
@@ -614,7 +581,7 @@ static int huawei_lsm_socket_sendmsg (struct socket *sock,struct msghdr *msg, in
 	return result;
 }
 static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address, int addrlen){
-	printk("huawei_lsm_socket_bind");
+	//printk("huawei_lsm_socket_bind");
 	char *object[30];
 	object[0] = (char)(sock->type + '0');
 	struct sockaddr_in *address_in = (struct sockaddr_in *)address;
@@ -639,7 +606,7 @@ static int huawei_lsm_socket_bind (struct socket *sock,struct sockaddr *address,
 	return result;
 }	
 static int huawei_lsm_socket_create (int family, int type, int protocol, int kern){
-	printk("huawei_lsm_socket_create\n");
+	//printk("huawei_lsm_socket_create\n");
 	char familyChar0 = (char)(family%10+'0');
 	char familyChar1 = (char)(family/10+'0');
 	//printk("family = %d\n",family);
@@ -661,7 +628,7 @@ static int huawei_lsm_socket_create (int family, int type, int protocol, int ker
 
 //ddl,exec				
 static int huawei_lsm_inode_setattr	(struct dentry *dentry, struct iattr *attr){
-	//printk("huawei_lsm_inode_setattr %o\n",attr->ia_mode);
+	printk("huawei_lsm_inode_setattr %o\n",attr->ia_mode);
 	char full_path[MAX_LENGTH];
 	memset(full_path,0,MAX_LENGTH);
 	get_fullpath(dentry,full_path);
@@ -678,8 +645,8 @@ static int huawei_lsm_inode_setattr	(struct dentry *dentry, struct iattr *attr){
 static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
     //if(mask != MAY_EXEC && mask != MAY_APPEND)
 	//	return 0; 
-	//int check_mask = mask & (MAY_READ|MAY_WRITE|MAY_EXEC|MAY_APPEND);
-	int check_mask = mask & (MAY_EXEC);
+	int check_mask = mask & (MAY_EXEC|MAY_APPEND);
+	//int check_mask = mask & (MAY_EXEC);
 	if(!check_mask)
 		return 0;
 	if(S_ISDIR(inode->i_mode))
@@ -692,16 +659,11 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 	get_fullpath(useDentry,full_path);
 	if(strlen(full_path) == 0)
 		return 0;
-	if(strcmp(full_path,"/home/yxtian/Desktop/huawei/lsmtest/wl")==0){
-		printk("path = %s\n",full_path);
-		printk("huawei_lsm_inode_permission %o\n",inodeMode);
-	}
-	if(mask == MAY_EXEC) { //* inodeMode > 1023 &&  */mask == MAY_EXEC){
-		char *currentProcess = get_current_process_full_path();
-		//printk("currentProcess = %s\n", currentProcess);
-		//printk("path = %s\n",full_path);
-		//printk("process %s  mask = %d\n",currentProcess,mask);
 
+	if(mask & MAY_EXEC >0 ) { 
+		printk("huawei_lsm_inode_permission\n");
+		char *currentProcess = get_current_process_full_path();
+		
 		int ddlresult = wl_avtab_check(currentProcess,full_path,FILE_CONTROL,EXEC_AUTHORITY,&policydb);
 		int fileresult = wl_avtab_check(currentProcess,full_path,DDL_CONTROL,DDL_EXEC_AUTHORITY,&policydb);
 		//printk("result %d %d \n",ddlresult,fileresult);
@@ -724,7 +686,8 @@ static int huawei_lsm_inode_permission(struct inode *inode, int mask) {
 			return 1;
 		return 0;
 	}
-	if( mask == MAY_APPEND){
+	if( mask & MAY_APPEND > 0){
+		printk("huawei_lsm_inode_permission\n");
 		char *currentProcess = get_current_process_full_path(); 
 		//printk("process %s  mask = %d\n",currentProcess,mask);
 
@@ -826,6 +789,8 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 			//读数据开头
 			while(controlledmessage[readProcess]!='#'){
 				++readProcess;
+				if(readProcess >= len)
+					return len;
 			}
 			++readProcess;
 			//读obj_name
@@ -847,13 +812,15 @@ static int write_object_typeMapping(int fd, char *buf, ssize_t len)
 			++readProcess;
 			//读obj_type
 			int obj_type = 0;
-			while(controlledmessage[readProcess]!='\n'){
+			while(controlledmessage[readProcess]!='\n'&& controlledmessage[readProcess]!=(char)13){
 				obj_type = obj_type*10;
 				obj_type = obj_type + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
 			printk("obj_type = %d\n",obj_type);
-			
+			while(controlledmessage[readProcess]!='\n'){
+				readProcess++;
+			}
 			addNewObjtype_node(
 				insert_objtype_node(obj_name,obj_type),
 				&policydb
@@ -891,10 +858,12 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 	int readProcess = 0;
  	while(readProcess < len){
 		//读每行数据（即一个完整数据）
-		while(controlledmessage[readProcess]!='\n'){
+		while(controlledmessage[readProcess]!='\n' && readProcess < len){
 			//读数据开头
 			while(controlledmessage[readProcess]!='#'){
 				++readProcess;
+				if(readProcess >= len)
+					return len;
 			}
 			++readProcess;
 			//读sub_name
@@ -915,12 +884,15 @@ static int write_subject_domainMapping(int fd, char *buf, ssize_t len)
 			++readProcess;
 			//读sub_domain
 			int sub_domain = 0;
-			while(controlledmessage[readProcess]!='\n'){
+			while(controlledmessage[readProcess]!='\n' && controlledmessage[readProcess]!=(char)13){
 				sub_domain = sub_domain*10;
 				sub_domain = sub_domain + controlledmessage[readProcess] - '0';
 				readProcess++;
 			}
 			printk("sub_domain = %d\n",sub_domain);
+			while(controlledmessage[readProcess]!='\n'){
+				readProcess++;
+			}
 			addNewSdmap_node(
 				insert_sdmap_node(sub_name,sub_domain),
 				&policydb
@@ -964,6 +936,8 @@ static int write_whiteList(int fd, char *buf, ssize_t len)
 			//读数据开头
 			while(controlledmessage[readProcess]!='#'){
 				++readProcess;
+				if(readProcess >= len)
+					return len;
 			}
 			++readProcess;
 			//读source_name
@@ -1061,22 +1035,24 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 	enable_flag = 1;
 	int readProcess = 0;
 	//write rules
- 	while(readProcess < len){
+ 	while(readProcess < len-6){
 		//读每行数据（即一个完整数据）
-		while(controlledmessage[readProcess]!='\n'){
+		while(controlledmessage[readProcess]!='\n' && readProcess < len){
 			//读数据开头
 			while(controlledmessage[readProcess]!='#'){
 				++readProcess;
+				if(readProcess >= len)
+					return len;
 			}
 			++readProcess;
 			//读domain_name（不读取）
-			while(controlledmessage[readProcess]!='#'){
+			while(controlledmessage[readProcess]!='#'&& readProcess < len){
 				++readProcess;
 			}
 			++readProcess;
 			//读域编号
 			int source_type=0;
-			while(controlledmessage[readProcess]!='#'){
+			while(controlledmessage[readProcess]!='#'&& readProcess < len){
 				source_type = source_type * 10;
 				source_type = source_type + controlledmessage[readProcess] - '0';
 				readProcess++;
@@ -1084,13 +1060,13 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 			printk("source_type = %d",source_type);
 			readProcess++;
 			//读类型名(不读取)
-			while(controlledmessage[readProcess]!='#'){
+			while(controlledmessage[readProcess]!='#'&& readProcess < len){
 				++readProcess;
 			}
 			++readProcess;
 			//读类型编号
 			int target_type=0;
-			while(controlledmessage[readProcess]!='#'){
+			while(controlledmessage[readProcess]!='#'&& readProcess < len){
 				target_type = target_type * 10;
 				target_type = target_type + controlledmessage[readProcess] - '0';
 				readProcess++;
@@ -1111,13 +1087,16 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 				readProcess++;
 			}
 			printk("permission = %d\n",permission);
-			
-			addNewTe_node(
+			if(source_type >= 0 && target_type >=0 && permission >=0){
+				addNewTe_node(
 				insert_te_node(source_type,target_type,target_class,permission),
 				&policydb
-			);
+				);
+			printk("readProcess = %d,len = %d\n",readProcess,len);
+			}
 		}
 		readProcess++;
+		printk("getout while\n");
 	} 
 	/*printk("check\n");
 	int counttest = 0;
@@ -1133,6 +1112,489 @@ static int write_accessControlMatrix(int fd, char *buf, ssize_t len)
 		}
 	} */
 }	
+
+
+static int update_policy(int fd, char *buf, ssize_t len)
+{
+	printk("start update_policy\n");
+	printk("buf is %s\n",buf);
+	memset(controlledmessage,0,8192);
+	if(len == 0)
+		return len;
+	if (copy_from_user(controlledmessage, buf, len) != 0){
+		printk("Can't get the controlled directory's name! \n");
+		printk("Something may be wrong, please check it! \n");
+	}
+
+	controlledmessage[len] = '\0';
+	enable_flag = 1;
+	//test!
+	strcpy(controlledmessage,buf);
+	//write rules
+
+	int readProcess = 0;
+ 	while(readProcess < len){
+		//读每行数据（即一个完整数据）
+		while(controlledmessage[readProcess]!='\n'){
+			//读数据开头
+			while(controlledmessage[readProcess]!='%'){
+				++readProcess;
+			}
+			++readProcess;
+			//read update type, only one number
+			int update_type = 0;
+			update_type = controlledmessage[readProcess] - '0';
+			++readProcess;
+			++readProcess;
+			printk("update type = %d\n", update_type);
+
+			//read update table, onle one number
+			int update_table = 0;
+			update_table = controlledmessage[readProcess] - '0';
+			++readProcess;
+			++readProcess;
+			printk("update table = %d\n", update_table);
+			++readProcess;
+
+			if( (update_type == 1 || update_type == 2) && (update_table == 1 || update_table == 2) ) {
+				//读subobj_name
+				char subobj_name[MAX_LENGTH];
+				memset(subobj_name,0,MAX_LENGTH);
+				int source_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					subobj_name[source_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				subobj_name[source_count]='\0';
+				printk("subobj_name = %s\n",subobj_name);
+				++readProcess;
+				//读domain_name(不读取)
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读subobj_mapping
+				int subobj_mapping = 0;
+				while(controlledmessage[readProcess]!='#'){
+					subobj_mapping = subobj_mapping*10;
+					subobj_mapping = subobj_mapping + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("subobj_mapping = %d\n",subobj_mapping);
+
+				if(update_type == 1 && update_table == 1) {  // add a node in sub-domain table
+					addNewSdmap_node(
+						insert_sdmap_node(subobj_name,subobj_mapping),
+						&policydb
+					);
+					return 11;
+				}
+				if(update_type == 1 && update_table == 2) { // add a node in obj-type table
+					addNewObjtype_node(
+						insert_objtype_node(subobj_name,subobj_mapping),
+						&policydb
+					);
+					return 12;
+				}
+				if(update_type == 2 && update_table == 1) { // del a node from sub-domain table
+					del_sdmap_node(subobj_name, subobj_mapping, &policydb);
+					return 21;
+				}
+				if(update_type == 2 && update_table == 2) { // del a node from obj-type table
+					del_objtype_node(subobj_name, subobj_mapping, &policydb);
+					return 22;
+				}
+			}
+
+			if( (update_type == 1 || update_type == 2) && (update_table == 3) ) { // add or del access control matrix
+				//读domain_name（不读取）
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读域编号
+				int source_type=0;
+				while(controlledmessage[readProcess]!='#'){
+					source_type = source_type * 10;
+					source_type = source_type + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				printk("source_type = %d",source_type);
+				readProcess++;
+				//读类型名(不读取)
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读类型编号
+				int target_type=0;
+				while(controlledmessage[readProcess]!='#'){
+					target_type = target_type * 10;
+					target_type = target_type + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				printk("target_type = %d",target_type);
+				readProcess++;
+				//读客体类别（只有1位）
+				int target_class = 0;
+				target_class = controlledmessage[readProcess] - '0';
+				readProcess++;
+				readProcess++;
+				printk("target_class = %d",target_class);
+				//读permission
+				int permission = 0;
+				while(controlledmessage[readProcess]!='#'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+					permission = 2*permission;
+					permission = permission + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("permission = %d\n",permission);
+
+				if(update_type == 1) { //add node to access control matrix
+					addNewTe_node(
+						insert_te_node(source_type,target_type,target_class,permission),
+						&policydb
+					);
+					return 13;
+				}
+				if(update_type == 2) { //del node from access control matrix
+					del_te_node(source_type, target_type, target_class, permission, &policydb);
+					return 23;
+				}
+
+			}
+
+			if( (update_type == 1 || update_type == 2) && (update_table == 4) ) {
+				//读source_name
+				char source_name[MAX_LENGTH];
+				memset(source_name,0,MAX_LENGTH);
+				int source_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					source_name[source_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				source_name[source_count]='\0';
+				printk("source_name = %s\n",source_name);			
+				++readProcess;
+				//读target_name
+				char target_name[MAX_LENGTH];
+				memset(target_name,0,MAX_LENGTH);
+				int target_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					target_name[target_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				printk("target_name = %s\n",target_name);
+				target_name[target_count]='\0';
+				++readProcess;
+				//读target_type（只有1位）
+				int target_type = 0;
+				target_type = controlledmessage[readProcess] - '0';
+				readProcess++;
+				readProcess++;
+				printk("target_type = %d\n",target_type);
+				//读permission
+				int permission = 0;
+				while(controlledmessage[readProcess]!='\n'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+					permission = 2*permission;
+					permission = permission + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("permission = %d\n",permission);
+
+				if(update_type == 1) { // add node to while list
+					addNewWl_avtb_node(
+						insert_wl_avtab_node(source_name,target_name,target_type,permission),
+						&policydb
+					);
+					return 14;
+				}
+
+				if(update_type == 2) { // del node from while list
+					del_wl_node(source_name, target_name, target_type, permission, &policydb);
+					return 24;
+				}
+
+			}
+
+			if(update_type == 3 && (update_table == 1 || update_table == 2)) {
+				
+				char del_subobj_name[MAX_LENGTH];
+				memset(del_subobj_name,0,MAX_LENGTH);
+				int del_source_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					del_subobj_name[del_source_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				del_subobj_name[del_source_count]='\0';
+				printk("del_subobj_name = %s\n",del_subobj_name);
+				++readProcess;
+				//读domain_name(不读取)
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读del_subobj_mapping
+				int del_subobj_mapping = 0;
+				while(controlledmessage[readProcess]!='#'){
+					del_subobj_mapping = del_subobj_mapping*10;
+					del_subobj_mapping = del_subobj_mapping + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("del_subobj_mapping = %d\n",del_subobj_mapping);
+
+
+				char add_subobj_name[MAX_LENGTH];
+				memset(add_subobj_name,0,MAX_LENGTH);
+				int add_source_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					add_subobj_name[add_source_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				add_subobj_name[add_source_count]='\0';
+				printk("add_subobj_name = %s\n",add_subobj_name);
+				++readProcess;
+				//读domain_name(不读取)
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读add_subobj_mapping
+				int add_subobj_mapping = 0;
+				while(controlledmessage[readProcess]!='#'){
+					add_subobj_mapping = add_subobj_mapping*10;
+					add_subobj_mapping = add_subobj_mapping + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("add_subobj_mapping = %d\n",add_subobj_mapping);
+
+				if(update_table == 1) { //del then add node in sub-domain table
+					del_sdmap_node(del_subobj_name, del_subobj_mapping, &policydb);
+					addNewSdmap_node(
+						insert_sdmap_node(add_subobj_name, add_subobj_mapping),
+						&policydb
+					);
+					return 31;
+				}
+
+				if(update_table == 2) { //del then add node in obj-type table
+					del_objtype_node(del_subobj_name, del_subobj_mapping, &policydb);
+					addNewObjtype_node(
+						insert_objtype_node(add_subobj_name, add_subobj_mapping),
+						&policydb
+					);
+					return 32;
+				}
+			}
+
+			if(update_type == 3 && update_table == 3) {
+
+				//读domain_name（不读取）
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读域编号
+				int del_source_type=0;
+				while(controlledmessage[readProcess]!='#'){
+					del_source_type = del_source_type * 10;
+					del_source_type = del_source_type + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				printk("del_source_type = %d",del_source_type);
+				readProcess++;
+				//读类型名(不读取)
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读类型编号
+				int del_target_type=0;
+				while(controlledmessage[readProcess]!='#'){
+					del_target_type = del_target_type * 10;
+					del_target_type = del_target_type + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				printk("del_target_type = %d",del_target_type);
+				readProcess++;
+				//读客体类别（只有1位）
+				int del_target_class = 0;
+				del_target_class = controlledmessage[readProcess] - '0';
+				readProcess++;
+				readProcess++;
+				printk("del_target_class = %d",del_target_class);
+				//读permission
+				int del_permission = 0;
+				while(controlledmessage[readProcess]!='#'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+					del_permission = 2*del_permission;
+					del_permission = del_permission + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("del_permission = %d\n",del_permission);
+
+								//读domain_name（不读取）
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读域编号
+				int add_source_type=0;
+				while(controlledmessage[readProcess]!='#'){
+					add_source_type = add_source_type * 10;
+					add_source_type = add_source_type + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				printk("add_source_type = %d",add_source_type);
+				readProcess++;
+				//读类型名(不读取)
+				while(controlledmessage[readProcess]!='#'){
+					++readProcess;
+				}
+				++readProcess;
+				//读类型编号
+				int add_target_type=0;
+				while(controlledmessage[readProcess]!='#'){
+					add_target_type = add_target_type * 10;
+					add_target_type = add_target_type + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				printk("add_target_type = %d",add_target_type);
+				readProcess++;
+				//读客体类别（只有1位）
+				int add_target_class = 0;
+				add_target_class = controlledmessage[readProcess] - '0';
+				readProcess++;
+				readProcess++;
+				printk("add_target_class = %d",add_target_class);
+				//读permission
+				int add_permission = 0;
+				while(controlledmessage[readProcess]!='#'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+					add_permission = 2*add_permission;
+					add_permission = add_permission + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("add_permission = %d\n",add_permission);
+
+				//del node from access 
+				del_te_node(del_source_type, del_target_type, del_target_class, del_permission, &policydb);
+
+				//add node from access
+				addNewTe_node(
+					insert_te_node(add_source_type,add_target_type,add_target_class,add_permission),
+					&policydb
+				);
+				return 33;
+
+			}
+
+			if(update_type == 3 && update_table == 4) {
+				//读source_name
+				char del_source_name[MAX_LENGTH];
+				memset(del_source_name,0,MAX_LENGTH);
+				int del_source_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					del_source_name[del_source_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				del_source_name[del_source_count]='\0';
+				printk("del_source_name = %s\n",del_source_name);			
+				++readProcess;
+				//读target_name
+				char del_target_name[MAX_LENGTH];
+				memset(del_target_name,0,MAX_LENGTH);
+				int del_target_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					del_target_name[del_target_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				printk("del_target_name = %s\n",del_target_name);
+				del_target_name[del_target_count]='\0';
+				++readProcess;
+				//读target_type（只有1位）
+				int del_target_type = 0;
+				del_target_type = controlledmessage[readProcess] - '0';
+				readProcess++;
+				readProcess++;
+				printk("del_target_type = %d\n",del_target_type);
+				//读permission
+				int del_permission = 0;
+				while(controlledmessage[readProcess]!='#'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+					del_permission = 2*del_permission;
+					del_permission = del_permission + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("del_permission = %d\n",del_permission);
+
+				//读add_source_name
+				char add_source_name[MAX_LENGTH];
+				memset(add_source_name,0,MAX_LENGTH);
+				int add_source_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					add_source_name[add_source_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				add_source_name[add_source_count]='\0';
+				printk("add_source_name = %s\n",add_source_name);			
+				++readProcess;
+				//读target_name
+				char add_target_name[MAX_LENGTH];
+				memset(add_target_name,0,MAX_LENGTH);
+				int add_target_count = 0;
+				while(controlledmessage[readProcess]!='#'){
+					add_target_name[add_target_count++] = controlledmessage[readProcess];
+					++readProcess;
+				}
+				printk("add_target_name = %s\n",add_target_name);
+				add_target_name[add_target_count]='\0';
+				++readProcess;
+				//读target_type（只有1位）
+				int add_target_type = 0;
+				add_target_type = controlledmessage[readProcess] - '0';
+				readProcess++;
+				readProcess++;
+				printk("add_target_type = %d\n",add_target_type);
+				//读permission
+				int add_permission = 0;
+				while(controlledmessage[readProcess]!='\n'&&controlledmessage[readProcess]=='0'||controlledmessage[readProcess]=='1'){
+					add_permission = 2*add_permission;
+					add_permission = add_permission + controlledmessage[readProcess] - '0';
+					readProcess++;
+				}
+				++readProcess;
+				printk("add_permission = %d\n",add_permission);
+
+				//del node from while list
+				del_wl_node(del_source_name, del_target_name, del_target_type, del_permission, &policydb);
+
+				//add node from while list
+				addNewWl_avtb_node(
+					insert_wl_avtab_node(add_source_name,add_target_name,add_target_type,add_permission),
+					&policydb
+				);
+
+				return 34;
+
+			}
+		}
+		readProcess++;
+	}
+ 
+}
+
+struct file_operations fop_updatepolicy = {
+	owner:THIS_MODULE,
+	write:update_policy,
+};
+
+
 //配置安全策略解析模块		   
 struct file_operations fops0 = {
 	owner:THIS_MODULE, 
@@ -1151,6 +1613,10 @@ struct file_operations fops3 = {
 	write: write_accessControlMatrix, 
 }; 
 
+/* struct file_operations fop_updatepolicy = {
+	owner:THIS_MODULE,
+	write:update_policy,
+}; */
 void initialpolicydb(void){
 	policydb.sub_dom_map_size = HASH_MAX_LENGTH;
 	policydb.sub_dom_map_use = 0;
@@ -1227,13 +1693,17 @@ static struct security_operations lsm_ops=
 
 	//ddl,exec
 	.inode_setattr = huawei_lsm_inode_setattr,
-	.inode_permission = huawei_lsm_inode_permission,
+	.inode_permission = huawei_lsm_inode_permission, 
 };
 
 //读函数
 char * readRules(char* filename){
 	struct file *fp;
 	char buf[8912];
+	int i = 0;
+	for(;i<8912;++i){
+		buf[i] = '\0';
+	}
 	printk("filename = %s\n",filename);
     mm_segment_t fs;
     loff_t pos;
@@ -1255,6 +1725,7 @@ char * readRules(char* filename){
 static int __init lsm_init(void)
 {
 	int ret_subjectDomainMapping,ret_objectTypeMapping,ret_whiteList,ret_accessControlMatrix;
+	int ret_updatepolicy;
     if(register_security(&lsm_ops))
           {
         printk(KERN_INFO"Failure registering LSM module with kernel\n");
@@ -1262,22 +1733,18 @@ static int __init lsm_init(void)
 	
     printk(KERN_INFO"LSM Module Init Success! \n");
 	initialpolicydb();
-	ret_subjectDomainMapping = register_chrdev(123, "/dev/subject-domainMapping.cfg", &fops0); 	// 向系统注册设备结点文件
-	printk("ret_subjectDomainMapping Init Success! %d \n",ret_subjectDomainMapping);
-	ret_objectTypeMapping = register_chrdev(124, "/dev/object-typeMapping.cfg", &fops1); 	// 向系统注册设备结点文件
-	printk("ret_objectTypeMapping Init Success! %d \n",ret_objectTypeMapping);
-	ret_whiteList = register_chrdev(125, "/dev/whiteList.cfg", &fops2); 	// 向系统注册设备结点文件
-	char* wl = readRules("/home/yxtian/Desktop/huawei/lsmtest/wl");//"#source_name0#target_name0#3#00000010\n#source_name1#target_name1#5#00000100\n";
+	char* wl = readRules("/home/yxtian/Desktop/huawei/sys_conf/web/cfg/whiteList.cfg");
 	write_whiteList(1,wl,strlen(wl));
-	char *ac = "#domain_name 1#1#type_name1#2#1#00000001\n#domain_name 2#2#type_name2#2#3#00000010\n#domain_name 3#2#type_name3#1#5#00000100\n#domain#3#target#2#0#00010000\n";
-	write_accessControlMatrix(1,ac,strlen(ac));
-	char *ob = "#obj_name0#log_t#1\n#obj_name1#config_t#0\n#/home/yxtian/Desktop/new file#log_t#2\n";
-	char *su = "#sub_name0#admin_t#0\n#sub_name1#config_t#1\n#sub_name2#admin_t#0\n#/usr/bin/nautilus#admin_h#3\n";
+	char *ob = readRules("/home/yxtian/Desktop/huawei/sys_conf/web/cfg/object-typeMapping.cfg");
 	write_object_typeMapping(1,ob,strlen(ob));
+	char *su =  readRules("/home/yxtian/Desktop/huawei/lsmtest/subject-domainMapping.cfg");
 	write_subject_domainMapping(1,su,strlen(su));
-	ret_accessControlMatrix = register_chrdev(126, "/dev/accessControlMatrix.cfg", &fops3); 	// 向系统注册设备结点文件
+	char *ac = readRules("/home/yxtian/Desktop/huawei/sys_conf/web/cfg/accessControlMatrix.cfg");
+	write_accessControlMatrix(1,ac,strlen(ac));
 	printk("ret_accessControlMatrix Init Success! %d \n",ret_accessControlMatrix);
 
+	ret_updatepolicy = register_chrdev(127, "/dev/updatepolicy", &fop_updatepolicy);
+	printk("ret_updatepolicy init success! %d \n", ret_updatepolicy);
 
    return 0;
 }

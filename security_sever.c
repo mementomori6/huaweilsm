@@ -327,3 +327,138 @@ int te_avtab_check (int source_type, int target_type, uint32_t target_class, uin
 	}
 	return -1;
 }
+
+void del_sdmap_node(char *sub_name, int sub_domain, struct policydb *policydb)
+{
+	printk("in del_sdmap_node\n");
+	if(sub_name == NULL || strlen(sub_name) == 0) {
+		printk("sub_name is NULL or empty.\n");
+		return;
+	}
+	int answer = BKDRHash(sub_name) % policydb->sub_dom_map_size;
+	struct sdmap_node *find = policydb->sub_dom_map->sdmap_node[answer];
+	struct sdmap_node *prev = policydb->sub_dom_map->sdmap_node[answer];
+
+	while(find != NULL) {
+		if(strcmp(sub_name, find->key->sub_name) == 0) {
+			//del the node
+			printk("find the node and del it\n");
+			if(prev == find) {
+				printk("del the first node\n");
+				policydb->sub_dom_map->sdmap_node[answer] = find->next;
+			}
+			else {
+				printk("del the middle node\n");
+				prev->next = find->next;
+			}
+			vfree(find->key->sub_name);
+			vfree(find->key);
+			vfree(find->datum);
+			vfree(find);
+			return;
+		}
+		prev = find;
+		find = find->next;
+	}
+}
+
+void del_objtype_node(char *obj_name, int obj_type, struct policydb *policydb)
+{
+	printk("in del_objtype_node\n");
+	if(obj_name == NULL || strlen(obj_name) == 0) {
+		printk("obj_name is NULL or empty\n");
+		return;
+	} 
+	int answer = BKDRHash(obj_name) % policydb->obj_type_map_size;
+	struct objtype_node *find = policydb->obj_type_map->objtype_node[answer];
+	struct objtype_node *prev = policydb->obj_type_map->objtype_node[answer];
+
+	while(find != NULL) {
+		if(strcmp(obj_name, find->key->obj_name) == 0) {
+			//del the node
+			printk("find the node and del it\n");
+			if(prev == find) {
+				printk("del the first node\n");
+				policydb->obj_type_map->objtype_node[answer] = find->next;
+			}
+			else {
+				printk("del the middle node\n");
+				prev->next = find->next;
+			}
+			vfree(find->key->obj_name);
+			vfree(find->key);
+			vfree(find->datum);
+			vfree(find);
+			return;
+		}
+		prev = find;
+		find = find->next;
+	}
+}
+
+void del_wl_node(char *source_name, char *target_name, uint32_t target_class, uint32_t request, struct policydb *policydb)
+{
+	printk("in del_wl_node\n");
+	if(source_name == NULL || target_name == NULL || strlen(source_name) == 0 || strlen(target_name) == 0) {
+		printk("source_name or target_name is empty.\n");
+		return;
+	}
+	int answer = BKDRHash(source_name) % policydb->wl_avtab_size;
+	struct wl_avtab_node *find = policydb->wl_avtab->wl_avtab_node[answer];
+	struct wl_avtab_node *prev = policydb->wl_avtab->wl_avtab_node[answer];
+
+	while(find != NULL) {
+		if(strcmp(source_name, find->key->source_name) == 0 && strcmp(target_name, find->key->target_name) == 0 && target_class == find->key->target_class ) {
+			//del the node
+			printk("find the node and del it\n");
+			if(prev == find) {
+				printk("del the first node\n");
+				policydb->wl_avtab->wl_avtab_node[answer] = find->next;
+			}
+			else {
+				printk("del the middle node\n");
+				prev->next = find->next;
+			}
+			vfree(find->key->source_name);
+			vfree(find->key->target_name);
+			vfree(find->key);
+			vfree(find->datum);
+			vfree(find);
+			return;
+		}
+		prev = find;
+		find = find->next;
+	}
+}
+
+
+void del_te_node(int source_type, int target_type, uint32_t target_class, uint32_t request, struct policydb *policydb)
+{
+	printk("in del_te_node\n");
+	int origin = source_type + target_type + target_class;
+	int answer = origin % policydb->te_avtab_size;
+
+	struct te_node *find = policydb->te_avtab->te_node[answer];
+	struct te_node *prev = policydb->te_avtab->te_node[answer];
+
+	while(find != NULL) {
+		if(source_type == find->key->source_type && target_type == find->key->target_type && target_class == find->key->target_class) {
+			//del the node
+			printk("find the node and del it\n");
+			if(prev == find) {
+				printk("del the first node\n");
+				policydb->te_avtab->te_node[answer] = find->next;
+			}
+			else {
+				printk("del the middle node\n");
+				prev->next = find->next;
+			}
+			vfree(find->key);
+			vfree(find->datum);
+			vfree(find);
+			return;
+		}
+		prev = find;
+		find = find->next;
+	}
+}
